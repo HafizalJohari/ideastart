@@ -1,0 +1,40 @@
+'use client'
+
+import { useState, type FormEvent, useEffect, useRef } from 'react'
+import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
+import { loadChatSessions, saveChatSession, deleteChatSession, searchChatSessions } from '@/lib/chatStore'
+import { PlatformSelector, type PlatformType, platformData } from '@/components/platform-selector'
+import { LanguageSelector, type Language } from '@/components/language-selector'
+import { StyleSelector, type CopywritingStyle, copywritingStyles } from '@/components/style-selector'
+import { ToneSelector, type WritingTone, writingTones } from '@/components/tone-selector'
+import { CopyButton } from '@/components/copy-button'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { ModelSelector, type ModelType, modelData } from '@/components/model-selector'
+import { Sidebar } from '@/components/sidebar'
+import { Message, Session, ChatState, ChatMemory } from '@/lib/types'
+import { translations } from '@/lib/translations'
+import { ChatHistory } from '@/components/chat-history'
+import { LoadingIndicator } from '@/components/loading-indicator'
+
+interface ExtendedMessage extends Message {
+  style?: CopywritingStyle
+  tone?: WritingTone
+  platforms?: PlatformType[]
+  model?: ModelType
+  imageUrl?: string
+}
+
+type ExtendedSession = Session
+
+const t = translations.en // Default to English
+
+export default function ChatInterface() {
+  // ... rest of the component code ...
+} 
