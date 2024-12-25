@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { LanguageSelector, type Language } from '@/components/language-selector'
@@ -14,6 +14,7 @@ import { ModelSelector, type ModelType } from '@/components/model-selector'
 import type { Session, Translations } from "@/lib/types"
 import { translations } from "@/lib/translations"
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Switch } from '@/components/ui/switch'
 
 interface SidebarProps {
   isSidebarOpen: boolean
@@ -37,6 +38,8 @@ interface SidebarProps {
   onSelectSession: (id: string) => void
   onDeleteSession: (id: string, e?: React.MouseEvent) => void | Promise<void>
   showThemeToggle?: boolean
+  soundEnabled: boolean
+  onSoundToggle: () => void
 }
 
 export function Sidebar({
@@ -60,7 +63,9 @@ export function Sidebar({
   onCreateNewSession,
   onSelectSession,
   onDeleteSession,
-  showThemeToggle = false
+  showThemeToggle = false,
+  soundEnabled,
+  onSoundToggle,
 }: SidebarProps) {
   return (
     <div className={cn(
@@ -129,13 +134,34 @@ export function Sidebar({
               />
             </div>
 
-            {/* Theme Toggle */}
-            {showThemeToggle && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Theme</label>
-                <ThemeToggle />
+            {/* Interface Section */}
+            <div className="border-t pt-4">
+              <h2 className="text-lg font-semibold mb-4">Interface</h2>
+              
+              <div className="space-y-4">
+                {/* Sound Notifications */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {soundEnabled ? (
+                      <Volume2 className="h-4 w-4" />
+                    ) : (
+                      <VolumeX className="h-4 w-4" />
+                    )}
+                    <span className="text-sm">Sound Notifications</span>
+                  </div>
+                  <Switch
+                    checked={soundEnabled}
+                    onCheckedChange={onSoundToggle}
+                    aria-label="Toggle sound notifications"
+                  />
+                </div>
+
+                {/* Theme Toggle */}
+                {showThemeToggle && (
+                  <ThemeToggle />
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 

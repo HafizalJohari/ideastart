@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.33.1",
     "@cerebras/cerebras_cloud_sdk": "^1.15.0",
     "@fal-ai/client": "^1.2.1",
+    "@google/generative-ai": "^0.21.0",
     "@langchain/core": "^0.3.24",
     "@langchain/openai": "^0.3.14",
     "@langchain/pinecone": "^0.1.3",

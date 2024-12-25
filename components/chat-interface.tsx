@@ -16,7 +16,7 @@ import { StyleSelector, type CopywritingStyle, copywritingStyles } from '@/compo
 import { ToneSelector, type WritingTone, writingTones } from '@/components/tone-selector'
 import { CopyButton } from '@/components/copy-button'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { ModelSelector, type ModelType, modelData } from '@/components/model-selector'
+import { ModelSelector, type ModelType, models } from '@/components/model-selector'
 import { Sidebar } from '@/components/sidebar'
 import type { Message as MessageType, Session, ChatState, ChatMemory } from '@/lib/types'
 import { translations } from '@/lib/translations'
@@ -90,6 +90,7 @@ export default function ChatInterface() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [textareaHeight, setTextareaHeight] = useState('50px')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   // Global state from Zustand
   const {
@@ -104,6 +105,7 @@ export default function ChatInterface() {
     searchQuery,
     isPinned,
     isRightSidebarOpen,
+    soundEnabled,
     setSessions,
     setCurrentSessionId,
     setMessages,
@@ -115,12 +117,22 @@ export default function ChatInterface() {
     setSearchQuery,
     setIsPinned,
     setIsRightSidebarOpen,
+    setSoundEnabled,
     createNewSession,
     deleteSession,
     addMessage
   } = useChatStore()
 
-  type QuickAction = 'create-image' | 'help-write' | 'surprise' | 'make-plan'
+  // Function to play notification sound
+  const playNotificationSound = () => {
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.play().catch(error => {
+        console.error('Error playing notification sound:', error)
+      })
+    }
+  }
+
+  type QuickAction = 'create-image' | 'help-write' | 'surprise' | 'make-plan' | 'generate-content'
 
   const handleQuickAction = (action: QuickAction) => {
     switch (action) {
@@ -139,6 +151,10 @@ export default function ChatInterface() {
       case 'make-plan':
         setSelectedPlatforms(['conversation'])
         setInput('Make a plan for ')
+        break
+      case 'generate-content':
+        setSelectedPlatforms(['conversation'])
+        setInput('Generate content for ')
         break
     }
     if (textareaRef.current) {
@@ -177,10 +193,10 @@ export default function ChatInterface() {
         role: 'user',
         content: input,
         timestamp: new Date().toISOString(),
-        platforms: selectedPlatforms,
-        style: selectedStyle,
-        tone: selectedTone,
-        model: selectedModel
+        platforms: selectedPlatforms as PlatformType[],
+        style: selectedStyle as CopywritingStyle,
+        tone: selectedTone as WritingTone,
+        model: selectedModel as ModelType
       }
 
       // Add user message to the chat
@@ -241,6 +257,9 @@ export default function ChatInterface() {
         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
         setTextareaHeight(`${textareaRef.current.scrollHeight}px`)
       }
+
+      // Play sound when message is received
+      playNotificationSound()
 
     } catch (error) {
       console.error('Error:', error)
@@ -326,6 +345,9 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Audio element for notification sound */}
+      <audio ref={audioRef} src="/media/modern_notification_.mp3" />
+
       {/* Left Sidebar - Settings */}
       <Sidebar
         isSidebarOpen={leftSidebarOpen}
@@ -346,16 +368,11 @@ export default function ChatInterface() {
         onModelChange={handleModelChange}
         onSearchChange={setSearchQuery}
         onCreateNewSession={handleNewChat}
-        onSelectSession={(id) => setCurrentSessionId(id)}
-        onDeleteSession={async (id, e) => {
-          e?.stopPropagation()
-          if (id === currentSessionId) {
-            handleNewChat()
-          }
-          await deleteChatSession(id)
-          setSessions((prev: Session[]) => prev.filter((s: Session) => s.id !== id))
-        }}
+        onSelectSession={setCurrentSessionId}
+        onDeleteSession={deleteSession}
         showThemeToggle={true}
+        soundEnabled={soundEnabled}
+        onSoundToggle={() => setSoundEnabled(!soundEnabled)}
       />
 
       {/* Main Content */}
@@ -429,6 +446,15 @@ export default function ChatInterface() {
                   >
                     <ListChecks className="w-4 h-4" />
                     Make a plan
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuickAction('generate-content')}
+                    className="flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Generate content
                   </Button>
                 </div>
               </div>
@@ -530,12 +556,49 @@ export default function ChatInterface() {
               </svg>
             </Button>
 
+            {/* Search Bar */}
+            <div className="p-4 border-b">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t.searchChats}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1 h-7 w-7"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <ChatHistory
               sessions={sessions}
               currentSessionId={currentSessionId}
               searchQuery={searchQuery}
-              onSelectSession={(id) => setCurrentSessionId(id)}
-              onDeleteSession={(id, e) => {/* handle delete session */}}
+              onSelectSession={(id) => {
+                setCurrentSessionId(id)
+                // Load the selected session's messages
+                const selectedSession = sessions.find(s => s.id === id)
+                if (selectedSession) {
+                  setMessages(selectedSession.messages)
+                }
+              }}
+              onDeleteSession={async (id, e) => {
+                e?.stopPropagation()
+                if (id === currentSessionId) {
+                  handleNewChat()
+                }
+                await deleteChatSession(id)
+                setSessions((prev: Session[]) => prev.filter((s: Session) => s.id !== id))
+              }}
               onClearSearch={() => setSearchQuery('')}
               translations={t}
             />

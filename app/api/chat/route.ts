@@ -7,109 +7,37 @@ import { type ModelType } from '@/components/model-selector'
 import { OpenAIClient } from '@/lib/openai'
 import { AnthropicClient } from '@/lib/anthropic'
 import { CerebrasClient } from '@/lib/cerebras'
-import { fal } from "@fal-ai/client"
-
-// Configure FAL.ai client
-if (!process.env.FAL_KEY) {
-  throw new Error('FAL_KEY is required')
-}
-
-fal.config({
-  credentials: process.env.FAL_KEY
-})
+import { generateImage, type GenerateImageResponse } from '@/lib/falai'
+import { GeminiClient } from '@/lib/gemini'
+import { XAIClient } from '@/lib/xai'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
   content: string
 }
 
-interface FalImageResponse {
+interface FalImage {
+  url: string
+  width: number
+  height: number
+  content_type: string
+}
+
+interface FalQueueStatus {
+  status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
+  logs?: Array<{ message: string }>
+  error?: string
+}
+
+interface FalResult {
   data: {
     images: Array<{
       url: string
+      width: number
+      height: number
     }>
   }
-}
-
-interface QueueStatus {
-  status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
-  error?: string
-  logs?: Array<{ message: string }>
-}
-
-async function generateImage(prompt: string): Promise<string> {
-  const maxRetries = 3
-  const timeout = 60000 // 60 seconds
-  const pollInterval = 2000 // 2 seconds
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`Generating image attempt ${attempt}/${maxRetries}:`, prompt)
-      
-      // Submit the request
-      const { request_id } = await fal.queue.submit("fal-ai/flux-pro", {
-        input: {
-          prompt,
-          aspect_ratio: "9:16", // Set vertical aspect ratio
-          num_inference_steps: 35, // Increased for better quality
-          guidance_scale: 7.5, // Increased for better prompt adherence
-          num_images: 1,
-          safety_tolerance: "2",
-          output_format: "jpeg",
-          raw: false // Enable post-processing for better results
-        }
-      })
-
-      console.log('Request submitted with ID:', request_id)
-
-      // Poll for completion
-      const startTime = Date.now()
-      while (Date.now() - startTime < timeout) {
-        // Check status
-        const status = await fal.queue.status("fal-ai/flux-pro", {
-          requestId: request_id,
-          logs: true
-        }) as QueueStatus
-
-        if (status.logs) {
-          status.logs.forEach(log => console.log('FAL.ai log:', log.message))
-        }
-
-        if (status.status === 'COMPLETED') {
-          // Get the result
-          const result = await fal.queue.result("fal-ai/flux-pro", {
-            requestId: request_id
-          }) as FalImageResponse
-
-          const imageUrl = result.data?.images?.[0]?.url
-          if (!imageUrl) {
-            throw new Error('No image URL in response')
-          }
-
-          console.log('Successfully generated image')
-          return imageUrl
-        } else if (status.status === 'FAILED') {
-          throw new Error(`Image generation failed: ${status.error || 'Unknown error'}`)
-        }
-
-        // Wait before polling again
-        await new Promise(resolve => setTimeout(resolve, pollInterval))
-      }
-
-      throw new Error('Image generation timed out')
-    } catch (error) {
-      console.error(`Error generating image (attempt ${attempt}/${maxRetries}):`, error)
-      
-      if (attempt === maxRetries) {
-        throw new Error(`Failed to generate image after ${maxRetries} attempts`)
-      }
-      
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000))
-    }
-  }
-
-  throw new Error('Failed to generate image') // Fallback error
+  requestId: string
 }
 
 function formatResponse(content: string): string {
@@ -206,24 +134,45 @@ interface RequestBody {
   directImageGeneration?: boolean
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const {
       message,
-      platforms,
-      language,
-      style,
-      tone,
-      model,
-      sessionId,
-      messages,
-      directImageGeneration
-    } = (await req.json()) as RequestBody
+      platforms = ['conversation'],
+      language = 'en',
+      style = 'none',
+      tone = 'none',
+      model = 'llama-3.3-70b',
+      messages = [],
+      directImageGeneration = false
+    } = await req.json()
 
-    // Handle direct image generation without LLM processing
+    // If it's a direct image generation request, bypass the LLM
     if (directImageGeneration && platforms.includes('imagePrompt')) {
-      const imageUrl = await generateImage(message)
-      return Response.json({ imageUrl })
+      console.log('Generating image directly from prompt:', message)
+      
+      try {
+        const imageResponse = await generateImage({ prompt: message })
+        const imageUrl = imageResponse.images[0]?.url
+        
+        if (!imageUrl) {
+          throw new Error('No image URL in response')
+        }
+
+        return Response.json({
+          response: message,
+          imageUrl,
+          model,
+          platforms,
+          style,
+          tone,
+          language
+        })
+
+      } catch (error) {
+        console.error('Error generating image:', error)
+        throw error
+      }
     }
 
     // Build system message for AI
@@ -231,16 +180,16 @@ export async function POST(req: Request) {
       ? '' 
       : `Please respond in ${language} language.`
 
-    const styleInstructions = style && style !== 'none' && copywritingStyles[style]
-      ? `Please structure your response using the ${copywritingStyles[style].name} framework: ${copywritingStyles[style].description}`
+    const styleInstructions = style && style !== 'none' && copywritingStyles[style as keyof typeof copywritingStyles]
+      ? `Please structure your response using the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework: ${copywritingStyles[style as keyof typeof copywritingStyles].description}`
       : ''
 
-    const toneInstructions = tone && tone !== 'none' && writingTones[tone]
-      ? `Please maintain a ${writingTones[tone].name} tone: ${writingTones[tone].description}`
+    const toneInstructions = tone && tone !== 'none' && writingTones[tone as keyof typeof writingTones]
+      ? `Please maintain a ${writingTones[tone as keyof typeof writingTones].name} tone: ${writingTones[tone as keyof typeof writingTones].description}`
       : ''
 
     const platformInstructions = platforms
-      .map(platform => platformData[platform as keyof typeof platformData]?.instructions || '')
+      .map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.instructions || '')
       .filter(Boolean)
       .join('\n')
 
@@ -255,9 +204,9 @@ ${toneInstructions}
 ${platformInstructions}
 
 Please generate content optimized for the following platforms:
-${platforms.map(platform => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
+${platforms.map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
 
-When responding, please structure your response clearly for each platform when multiple are selected${style && style !== 'none' ? `, following the ${copywritingStyles[style].name} framework` : ''} in a plain text format.`
+When responding, please structure your response clearly for each platform when multiple are selected${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''} in a plain text format.`
 
     // Get AI response based on model
     let response
@@ -273,6 +222,22 @@ When responding, please structure your response clearly for each platform when m
     } else if (model === 'claude-3-5-haiku-20241022') {
       const anthropic = new AnthropicClient()
       response = await anthropic.chat({
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: message }
+        ]
+      })
+    } else if (model.startsWith('gemini-')) {
+      const gemini = new GeminiClient()
+      response = await gemini.chat({
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: message }
+        ]
+      })
+    } else if (model === 'grok-2-1212') {
+      const xai = new XAIClient()
+      response = await xai.chat({
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: message }
@@ -299,13 +264,15 @@ When responding, please structure your response clearly for each platform when m
       throw new Error('Empty response from AI')
     }
 
-    // Then, handle image generation if imagePrompt is selected
+    // Handle image generation after chat response
     let imageUrl: string | undefined
     if (platforms.includes('imagePrompt') && !directImageGeneration) {
       try {
-        imageUrl = await generateImage(formattedResponse)
+        const imageResponse = await generateImage({ prompt: formattedResponse })
+        imageUrl = imageResponse.images[0]?.url
       } catch (error) {
         console.error('Error generating image:', error)
+        // Don't throw here, just log the error and continue without the image
       }
     }
 
@@ -315,7 +282,7 @@ When responding, please structure your response clearly for each platform when m
     })
 
   } catch (error) {
-    console.error('Error in chat API:', error)
+    console.error('Error:', error)
     return Response.json(
       { error: error instanceof Error ? error.message : 'An error occurred' },
       { status: 500 }
