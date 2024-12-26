@@ -1,51 +1,42 @@
+import { ModelType } from '@/components/model-selector'
 import { Language } from '@/components/language-selector'
 import { CopywritingStyle } from '@/components/style-selector'
 import { WritingTone } from '@/components/tone-selector'
 import { PlatformType } from '@/components/platform-selector'
-import { ModelType } from '@/components/model-selector'
 
 export interface Message {
   id: string
   role: 'system' | 'user' | 'assistant'
   content: string
   timestamp: string
-  imageUrl?: string
-}
-
-export interface ChatMemory {
-  context: string[]
-  keyPoints: string[]
-  userPreferences: {
-    language: Language
-    style?: CopywritingStyle | undefined
-    tone?: WritingTone | undefined
-    platforms: PlatformType[]
-    model: ModelType
-  }
-  lastInteraction: Date
-  memoryTokens: number
-  maxMemoryTokens: number
+  error?: boolean
 }
 
 export interface Session {
   id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  model?: ModelType
+  language?: Language
+  style?: CopywritingStyle
+  tone?: WritingTone
+  platforms?: PlatformType[]
+  lastMessage?: string
+  lastMessageTimestamp?: string
+}
+
+export interface ChatMemory {
   messages: Message[]
-  model: ModelType
-  platforms: PlatformType[]
-  language: Language
-  style: CopywritingStyle
-  tone: WritingTone
-  lastMessage: string
-  timestamp: string
-  hasGreeted: boolean
-  memory?: ChatMemory
+  context?: string
+  summary?: string
 }
 
 export interface ChatState {
-  sessions: Session[]
-  currentSessionId: string | null
-  isLoading: boolean
-  error: string | null
+  messages: Message[]
+  context?: string
+  loading: boolean
+  error?: string
 }
 
 export interface Translations {
@@ -89,5 +80,6 @@ export interface Translations {
   surpriseMe: string
   makePlan: string
   whatHelp: string
+  typeMessage: string
   [key: string]: string
 } 

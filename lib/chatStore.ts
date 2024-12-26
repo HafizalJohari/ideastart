@@ -1,22 +1,37 @@
 'use client';
 
-import type { Session } from './types'
+import type { Session, Message } from '@/lib/types'
+import { chatMemory } from '@/lib/chatMemory'
 
-const STORAGE_KEY = 'chat_sessions'
+// Safe localStorage access
+const getLocalStorage = () => {
+  if (typeof window !== 'undefined') {
+    return window.localStorage
+  }
+  return null
+}
 
-export async function loadChatSessions(): Promise<Session[]> {
+// Load chat sessions from localStorage
+export const loadChatSessions = (): Session[] => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
+    const storage = getLocalStorage()
+    if (!storage) return []
+    
+    const sessions = JSON.parse(storage.getItem('chat_sessions') || '[]') as Session[]
+    return sessions
   } catch (error) {
     console.error('Error loading chat sessions:', error)
     return []
   }
 }
 
-export async function saveChatSession(session: Session): Promise<void> {
+// Save chat session to localStorage
+export const saveChatSession = (session: Session) => {
   try {
-    const sessions = await loadChatSessions()
+    const storage = getLocalStorage()
+    if (!storage) return
+    
+    const sessions = loadChatSessions()
     const existingIndex = sessions.findIndex(s => s.id === session.id)
     
     if (existingIndex >= 0) {
@@ -25,34 +40,52 @@ export async function saveChatSession(session: Session): Promise<void> {
       sessions.unshift(session)
     }
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+    storage.setItem('chat_sessions', JSON.stringify(sessions))
   } catch (error) {
     console.error('Error saving chat session:', error)
   }
 }
 
-export async function deleteChatSession(sessionId: string): Promise<void> {
+// Delete chat session from localStorage
+export const deleteChatSession = (sessionId: string) => {
   try {
-    const sessions = await loadChatSessions()
-    const filtered = sessions.filter(s => s.id !== sessionId)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+    const storage = getLocalStorage()
+    if (!storage) return
+    
+    const sessions = loadChatSessions()
+    const updatedSessions = sessions.filter(s => s.id !== sessionId)
+    storage.setItem('chat_sessions', JSON.stringify(updatedSessions))
+    
+    // Also clear the chat memory for this session
+    chatMemory.clear(sessionId)
   } catch (error) {
     console.error('Error deleting chat session:', error)
   }
 }
 
-export async function searchChatSessions(query: string): Promise<Session[]> {
+// Search chat sessions
+export const searchChatSessions = (query: string): Session[] => {
   try {
-    const sessions = await loadChatSessions()
+    const sessions = loadChatSessions()
     if (!query) return sessions
-    
-    const lowerQuery = query.toLowerCase()
-    return sessions.filter(session => 
-      session.lastMessage?.toLowerCase().includes(lowerQuery) ||
-      session.messages.some(msg => 
-        msg.content.toLowerCase().includes(lowerQuery)
+
+    return sessions.filter(session => {
+      // Search in session name
+      if (session.name.toLowerCase().includes(query.toLowerCase())) {
+        return true
+      }
+      
+      // Search in session's last message
+      if (session.lastMessage?.toLowerCase().includes(query.toLowerCase())) {
+        return true
+      }
+      
+      // Search in chat memory
+      const messages = chatMemory.load(session.id)
+      return messages.some(msg => 
+        msg.content.toLowerCase().includes(query.toLowerCase())
       )
-    )
+    })
   } catch (error) {
     console.error('Error searching chat sessions:', error)
     return []

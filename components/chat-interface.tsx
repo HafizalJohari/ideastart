@@ -94,14 +94,14 @@ export default function ChatInterface() {
 
   // Global state from Zustand
   const {
+    messages,
     sessions,
     currentSessionId,
-    messages,
-    selectedPlatforms,
+    selectedModel,
     selectedLanguage,
     selectedStyle,
     selectedTone,
-    selectedModel,
+    selectedPlatforms,
     searchQuery,
     isPinned,
     isRightSidebarOpen,
@@ -109,18 +109,19 @@ export default function ChatInterface() {
     setSessions,
     setCurrentSessionId,
     setMessages,
-    setSelectedPlatforms,
+    setSelectedModel,
     setSelectedLanguage,
     setSelectedStyle,
     setSelectedTone,
-    setSelectedModel,
+    setSelectedPlatforms,
     setSearchQuery,
     setIsPinned,
     setIsRightSidebarOpen,
     setSoundEnabled,
     createNewSession,
     deleteSession,
-    addMessage
+    addMessage,
+    loadSessionMessages
   } = useChatStore()
 
   // Function to play notification sound
@@ -179,6 +180,13 @@ export default function ChatInterface() {
     }
   }
 
+  // Load chat memory when component mounts or session changes
+  useEffect(() => {
+    if (currentSessionId) {
+      loadSessionMessages(currentSessionId)
+    }
+  }, [currentSessionId, loadSessionMessages])
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     
@@ -199,7 +207,7 @@ export default function ChatInterface() {
         model: selectedModel as ModelType
       }
 
-      // Add user message to the chat
+      // Add user message to chat and memory
       addMessage(userMessage)
 
       // Clear input
@@ -220,7 +228,7 @@ export default function ChatInterface() {
         tone: selectedTone || 'none',
         model: selectedModel || 'llama-3.3-70b',
         sessionId: currentSessionId,
-        messages,
+        messages: messages.slice(-10), // Send last 10 messages for context
         directImageGeneration: selectedPlatforms.includes('imagePrompt')
       }
 
@@ -237,7 +245,7 @@ export default function ChatInterface() {
 
       const data = await response.json()
 
-      // Add assistant message
+      // Add assistant message to chat and memory
       const assistantMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -249,32 +257,29 @@ export default function ChatInterface() {
         model: selectedModel,
         imageUrl: data.imageUrl
       }
+
       addMessage(assistantMessage)
 
-      // Auto scroll to bottom
-      if (textareaRef.current) {
-        textareaRef.current.style.height = '50px'
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-        setTextareaHeight(`${textareaRef.current.scrollHeight}px`)
-      }
-
-      // Play sound when message is received
+      // Play notification sound
       playNotificationSound()
 
     } catch (error) {
       console.error('Error:', error)
-      // Add error message
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive'
+      })
+
+      // Add error message to chat
       const errorMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: 'Sorry, there was an error processing your request. Please try again.',
+        content: 'I apologize, but I encountered an error. Please try again.',
         timestamp: new Date().toISOString(),
-        platforms: selectedPlatforms,
-        style: selectedStyle,
-        tone: selectedTone,
-        model: selectedModel,
         error: true
       }
+
       addMessage(errorMessage)
     } finally {
       setIsLoading(false)
@@ -311,24 +316,20 @@ export default function ChatInterface() {
 
     // Create a new session
     const newSession: Session = {
-      id: Date.now().toString(),
-      messages: [],
+      id: crypto.randomUUID(),
+      name: `Chat ${sessions.length + 1}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       model: 'llama-3.3-70b',
       platforms: ['conversation'],
       language: 'en',
       style: 'none',
-      tone: 'none',
-      lastMessage: '',
-      timestamp: new Date().toISOString(), // Store as ISO string
-      hasGreeted: false
+      tone: 'none'
     }
 
-    // Add new session to sessions list
-    setSessions((prev: Session[]) => [newSession, ...prev])
+    // Add new session to sessions list and save it
+    setSessions(prev => [newSession, ...prev])
     setCurrentSessionId(newSession.id)
-
-    // Save the new session
-    saveChatSession(newSession)
   }
 
   const handleMouseEnter = () => {
@@ -341,6 +342,23 @@ export default function ChatInterface() {
     if (!isPinned) {
       setIsRightSidebarOpen(false)
     }
+  }
+
+  const handleDeleteSession = (sessionId: string) => {
+    const newSessions = sessions.filter(s => s.id !== sessionId)
+    setSessions(newSessions)
+    deleteSession(sessionId)
+  }
+
+  const handleCreateSession = () => {
+    const newSession: Session = {
+      id: crypto.randomUUID(),
+      name: `Chat ${sessions.length + 1}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    setSessions([newSession, ...sessions])
+    setCurrentSessionId(newSession.id)
   }
 
   return (
@@ -369,7 +387,7 @@ export default function ChatInterface() {
         onSearchChange={setSearchQuery}
         onCreateNewSession={handleNewChat}
         onSelectSession={setCurrentSessionId}
-        onDeleteSession={deleteSession}
+        onDeleteSession={handleDeleteSession}
         showThemeToggle={true}
         soundEnabled={soundEnabled}
         onSoundToggle={() => setSoundEnabled(!soundEnabled)}
@@ -585,19 +603,16 @@ export default function ChatInterface() {
               searchQuery={searchQuery}
               onSelectSession={(id) => {
                 setCurrentSessionId(id)
-                // Load the selected session's messages
-                const selectedSession = sessions.find(s => s.id === id)
-                if (selectedSession) {
-                  setMessages(selectedSession.messages)
-                }
+                // Load the selected session's messages from chat memory
+                loadSessionMessages(id)
               }}
               onDeleteSession={async (id, e) => {
                 e?.stopPropagation()
                 if (id === currentSessionId) {
                   handleNewChat()
                 }
-                await deleteChatSession(id)
-                setSessions((prev: Session[]) => prev.filter((s: Session) => s.id !== id))
+                deleteSession(id)
+                setSessions(prev => prev.filter(s => s.id !== id))
               }}
               onClearSearch={() => setSearchQuery('')}
               translations={t}
