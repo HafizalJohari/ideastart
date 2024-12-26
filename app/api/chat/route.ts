@@ -112,7 +112,7 @@ ${code.trim().split('\n').map((line: string) => '│ ' + line).join('\n')}
 
   // Add section separators
   formattedContent = formattedContent
-    .replace(/\n\n(?=[A-Z])/g, '\n\n┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n\n') // Add separators between major sections
+    .replace(/\n\n(?=[A-Z])/g, '\n\n┄┄┄┄┄┄┄┄┄┄��┄┄┄┄┄┄┄┄┄\n\n') // Add separators between major sections
 
   // Clean up final formatting
   formattedContent = formattedContent
@@ -241,8 +241,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If it's a direct image generation request, bypass the LLM
-    if (directImageGeneration && platforms.includes('imagePrompt')) {
+    // If it's a direct image generation request and ONLY imagePrompt is selected, bypass the LLM
+    if (directImageGeneration && platforms.length === 1 && platforms.includes('imagePrompt')) {
       console.log('Generating image directly from prompt:', message)
       
       try {
@@ -265,6 +265,18 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error('Error generating image:', error)
         throw error
+      }
+    }
+
+    // Handle case where imagePrompt is selected along with other platforms
+    let imageUrl: string | undefined
+    if (platforms.includes('imagePrompt')) {
+      try {
+        const imageResponse = await generateImage({ prompt: message })
+        imageUrl = imageResponse.images[0]?.url
+      } catch (error) {
+        console.error('Error generating image:', error)
+        // Continue with text generation even if image fails
       }
     }
 
@@ -374,24 +386,6 @@ Please structure your response ${platforms.length === 1 && platforms[0] === 'con
 
     if (!formattedResponse) {
       throw new Error('Empty response from AI')
-    }
-
-    // Handle image generation after chat response if imagePrompt is included
-    let imageUrl: string | undefined
-    if (platforms.includes('imagePrompt')) {
-      try {
-        // Extract the image prompt from the formatted response if it exists
-        const imagePromptMatch = formattedResponse.match(/Image Prompt:\s*([\s\S]*?)(?=\n\n|\n?$)/i)
-        const imagePromptText = imagePromptMatch 
-          ? imagePromptMatch[1].trim()
-          : message // Use original message if no specific image prompt found
-
-        const imageResponse = await generateImage({ prompt: imagePromptText })
-        imageUrl = imageResponse.images[0]?.url
-      } catch (error) {
-        console.error('Error generating image:', error)
-        // Don't throw here, just log the error and continue without the image
-      }
     }
 
     return Response.json({
