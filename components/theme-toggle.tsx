@@ -7,11 +7,31 @@ import { Switch } from "@/components/ui/switch"
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
-  const isDark = theme === "dark"
+  const [mounted, setMounted] = React.useState(false)
 
-  const handleToggle = () => {
-    setTheme(isDark ? "light" : "dark")
+  // After mounting, we have access to the theme
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Prevent hydration mismatch by not rendering the icons until mounted
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-4" />
+          <span className="text-sm">Dark Mode</span>
+        </div>
+        <Switch
+          checked={false}
+          onCheckedChange={() => {}}
+          aria-label="Toggle dark mode"
+        />
+      </div>
+    )
   }
+
+  const isDark = theme === "dark"
 
   return (
     <div className="flex items-center justify-between">
@@ -25,7 +45,7 @@ export function ThemeToggle() {
       </div>
       <Switch
         checked={isDark}
-        onCheckedChange={handleToggle}
+        onCheckedChange={() => setTheme(isDark ? "light" : "dark")}
         aria-label="Toggle dark mode"
       />
     </div>
