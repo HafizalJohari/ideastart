@@ -44,26 +44,23 @@ interface FalResult {
 function formatResponse(content: string): string {
   if (!content) return ''
   
-  // Remove any markdown formatting
+  // Clean up the text and normalize spacing
   let formattedContent = content
-    .replace(/[*_~`]/g, '') // Remove markdown formatting characters
-    .replace(/#{1,6}\s/g, '') // Remove heading markers
-    .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert markdown links to plain text
+    .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks to maximum of 2
     .trim()
 
-  // Ensure platform sections are clearly separated
+  // Format platform sections
   formattedContent = formattedContent
     .split('\n')
     .map(line => {
-      // Add extra spacing around platform headers
-      if (line.startsWith('- ') && line.includes(':')) {
-        return `\n${line}\n`
+      // Format platform headers
+      if (line.startsWith('### ')) {
+        const headerText = line.replace('### ', '').trim()
+        return `\n${headerText}\n${'─'.repeat(headerText.length)}`
       }
       return line
     })
     .join('\n')
-    .replace(/\n{3,}/g, '\n\n') // Clean up excessive line breaks again
 
   return formattedContent
 }
@@ -136,6 +133,11 @@ interface RequestBody {
   webUrls?: string[]
 }
 
+// Add debug logging for RAG process
+function logRAGDebug(message: string, data?: any) {
+  console.log(`[RAG Debug] ${message}`, data ? data : '')
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -150,16 +152,34 @@ export async function POST(req: NextRequest) {
       webUrls = []
     } = await req.json()
 
+    logRAGDebug('Request received with web URLs:', webUrls)
+
     // If web URLs are provided, generate RAG context
     let ragContext = ''
     let ragSources: string[] = []
     if (webUrls.length > 0) {
       try {
+        logRAGDebug('Starting RAG context generation')
+        logRAGDebug('User message:', message)
+        logRAGDebug('Processing URLs:', webUrls)
+
         const { context, sources } = await generateRAGContext(message, webUrls)
+        
+        logRAGDebug('RAG context generated successfully:', {
+          contextLength: context.length,
+          numberOfSources: sources.length
+        })
+        logRAGDebug('Generated context:', context)
+        logRAGDebug('Sources used:', sources)
+
         ragContext = context
         ragSources = sources
       } catch (error) {
-        console.error('Error generating RAG context:', error)
+        console.error('[RAG Error] Error generating RAG context:', error)
+        logRAGDebug('RAG generation failed with error:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        })
         // Continue without RAG if there's an error
       }
     }
@@ -222,7 +242,7 @@ ${platformInstructions}
 ${ragContext ? `\nRelevant context from provided web sources:\n${ragContext}\n\nPlease use this context to inform your response while maintaining accuracy and citing sources when appropriate.` : ''}
 
 ${platforms.length === 1 && platforms[0] === 'conversation' 
-  ? 'Please provide a natural, conversational response without any platform-specific formatting.'
+  ? 'Please provide a natural, conversational response in a clear, well-structured format.'
   : `Please generate content optimized for the following platforms ONLY:
 ${platforms.map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
 
@@ -230,10 +250,17 @@ Important Instructions:
 1. Structure your response with clear sections for each platform.
 2. If Image Prompt is one of the platforms, create a dedicated section starting with "Image Prompt:" followed by a detailed visual description.
 3. For all other platforms, create separate sections starting with the platform name followed by a colon.
-4. ONLY generate content for the specifically requested platforms listed above.
-5. Do not include any other platforms in your response.`}
+4. Use clear formatting:
+   - Use ** for emphasis
+   - Use * for subtle emphasis
+   - Use [] for code or technical terms
+   - Use > for quotes or notable content
+   - Use - for bullet points
+   - Use 1. 2. 3. for numbered lists
+5. ONLY generate content for the specifically requested platforms listed above.
+6. Do not include any other platforms in your response.`}
 
-Please structure your response ${platforms.length === 1 && platforms[0] === 'conversation' ? 'as a natural conversation' : 'clearly for each requested platform'}${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''} in a plain text format.`
+Please structure your response ${platforms.length === 1 && platforms[0] === 'conversation' ? 'as a natural conversation' : 'clearly for each requested platform'}${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''}.`
 
     // Get AI response based on model
     let response

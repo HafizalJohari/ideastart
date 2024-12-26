@@ -6,12 +6,20 @@ interface RAGContext {
   sources: string[]
 }
 
+// Add debug logging for RAG process
+function logRAGDebug(message: string, data?: any) {
+  console.log(`[RAG Debug] ${message}`, data ? data : '')
+}
+
 export async function generateRAGContext(
   query: string,
   urls: string[],
   maxTokens: number = 2000
 ): Promise<RAGContext> {
   try {
+    logRAGDebug('Starting RAG context generation for query:', query)
+    logRAGDebug('URLs to process:', urls)
+
     // Fetch and store content from all URLs
     const fetchPromises = urls.map(async (url) => {
       let content = getStoredContent(url)
@@ -24,14 +32,29 @@ export async function generateRAGContext(
 
     const contents = await Promise.all(fetchPromises)
 
+    logRAGDebug('Filtering valid scraped contents')
+    const validContents = contents.filter((content): content is NonNullable<typeof content> => content !== null)
+    
+    logRAGDebug('Processing scraped contents:', {
+      totalUrls: urls.length,
+      successfulScrapes: validContents.length
+    })
+
+    if (validContents.length === 0) {
+      logRAGDebug('No valid content was scraped from any URL')
+      return { context: '', sources: [] }
+    }
+
     // Chunk all content
-    const allChunks = contents.flatMap(content => 
+    const allChunks = validContents.flatMap(content => 
       chunkContent(content.content).map(chunk => ({
         chunk,
         url: content.url,
         title: content.title
       }))
     )
+
+    logRAGDebug('Total chunks created:', allChunks.length)
 
     // Simple relevance scoring (you might want to use a proper embedding model in production)
     const scoredChunks = allChunks.map(({ chunk, url, title }) => ({
@@ -57,12 +80,21 @@ export async function generateRAGContext(
       totalTokens += chunkTokens
     }
 
+    logRAGDebug('RAG context generation completed:', {
+      contextLength: context.length,
+      numberOfSources: Array.from(usedSources).length
+    })
+
     return {
       context: context.trim(),
       sources: Array.from(usedSources)
     }
   } catch (error) {
-    console.error('Error generating RAG context:', error)
+    console.error('[RAG Error] Error in generateRAGContext:', error)
+    logRAGDebug('RAG context generation failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     throw new Error(`Failed to generate context: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }

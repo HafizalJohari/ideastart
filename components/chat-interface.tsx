@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent, useEffect, useRef } from 'react'
-import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks } from 'lucide-react'
+import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -32,6 +32,7 @@ interface ExtendedMessage extends Omit<MessageType, 'id' | 'timestamp'> {
   model?: ModelType
   imageUrl?: string
   error?: boolean
+  sources?: string[]
 }
 
 type ExtendedSession = Session
@@ -92,6 +93,8 @@ export default function ChatInterface() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const [debugMode, setDebugMode] = useState(false)
+  const [webUrls, setWebUrls] = useState<string[]>([])
+  const [showUrlInput, setShowUrlInput] = useState(false)
 
   // Global state from Zustand
   const {
@@ -213,6 +216,7 @@ export default function ChatInterface() {
 
       // Clear input
       setInput('')
+      setWebUrls([]) // Clear URLs after submission
 
       // Reset textarea height
       if (textareaRef.current) {
@@ -230,7 +234,8 @@ export default function ChatInterface() {
         model: selectedModel || 'llama-3.3-70b',
         sessionId: currentSessionId,
         messages: messages.slice(-10), // Send last 10 messages for context
-        directImageGeneration: selectedPlatforms.includes('imagePrompt')
+        directImageGeneration: selectedPlatforms.includes('imagePrompt'),
+        webUrls // Add web URLs to request
       }
 
       // Send request to API
@@ -256,7 +261,8 @@ export default function ChatInterface() {
         style: selectedStyle,
         tone: selectedTone,
         model: selectedModel,
-        imageUrl: data.imageUrl
+        imageUrl: data.imageUrl,
+        sources: data.sources // Add sources to message
       }
 
       addMessage(assistantMessage)
@@ -487,6 +493,64 @@ export default function ChatInterface() {
     setDebugMode(!debugMode)
   }
 
+  // Add URL input handler
+  const handleAddUrl = (url: string) => {
+    if (url && !webUrls.includes(url)) {
+      setWebUrls([...webUrls, url])
+    }
+  }
+
+  // Add URL removal handler
+  const handleRemoveUrl = (urlToRemove: string) => {
+    setWebUrls(webUrls.filter(url => url !== urlToRemove))
+  }
+
+  // Add URL input component
+  const UrlInput = () => (
+    <div className="flex flex-col gap-2 p-2 border-t">
+      <div className="flex items-center gap-2">
+        <Input
+          type="url"
+          placeholder="Enter URL for context..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const input = e.target as HTMLInputElement
+              handleAddUrl(input.value)
+              input.value = ''
+            }
+          }}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowUrlInput(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      {webUrls.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {webUrls.map((url, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-1 text-xs bg-muted rounded-full px-2 py-1"
+            >
+              <span className="truncate max-w-[200px]">{url}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4"
+                onClick={() => handleRemoveUrl(url)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Audio element for notification sound */}
@@ -616,43 +680,56 @@ export default function ChatInterface() {
           </div>
 
           {/* Chat Input */}
-          <div className="border-t p-4">
-            <form onSubmit={handleSubmit} className="flex items-end gap-2">
-              <div className="flex-1">
-                <Textarea
-                  ref={textareaRef}
-                  placeholder={t.typeMessage}
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value)
-                    // Auto-adjust height
-                    if (textareaRef.current) {
-                      textareaRef.current.style.height = '50px'
-                      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-                      setTextareaHeight(`${textareaRef.current.scrollHeight}px`)
-                    }
-                  }}
-                  onKeyDown={handleKeyDown}
-                  style={{ height: textareaHeight }}
-                  className="min-h-[50px] w-full resize-none"
-                  disabled={isLoading}
-                />
-              </div>
-              <Button
-                type="submit"
-                size="icon"
-                variant="ghost"
-                className="absolute right-0 top-4 h-8 w-8"
-                disabled={isLoading || !input.trim()}
-                onClick={(e) => handleSubmit(e)}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </form>
+          <div className="border-t">
+            {showUrlInput && <UrlInput />}
+            <div className="p-4">
+              <form onSubmit={handleSubmit} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Textarea
+                    ref={textareaRef}
+                    placeholder={t.typeMessage}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value)
+                      // Auto-adjust height
+                      if (textareaRef.current) {
+                        textareaRef.current.style.height = '50px'
+                        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+                        setTextareaHeight(`${textareaRef.current.scrollHeight}px`)
+                      }
+                    }}
+                    onKeyDown={handleKeyDown}
+                    style={{ height: textareaHeight }}
+                    className="min-h-[50px] w-full resize-none"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setShowUrlInput(!showUrlInput)}
+                    className="h-8 w-8"
+                  >
+                    <Globe className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    variant="ghost"
+                    disabled={isLoading || !input.trim()}
+                    className="h-8 w-8"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </main>
