@@ -49,18 +49,59 @@ function formatResponse(content: string): string {
     .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks to maximum of 2
     .trim()
 
-  // Format platform sections
+  // Format code blocks
+  formattedContent = formattedContent
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+      const language = lang || ''
+      return `\n📝 ${language.toUpperCase()}\n${'─'.repeat(40)}\n${code.trim()}\n${'─'.repeat(40)}\n`
+    })
+
+  // Format inline code
+  formattedContent = formattedContent.replace(/`([^`]+)`/g, '「$1」')
+
+  // Format platform sections with emojis
+  const platformEmojis: Record<string, string> = {
+    'Twitter/X': '🐦',
+    'LinkedIn': '💼',
+    'Facebook': '👥',
+    'Instagram': '📸',
+    'TikTok': '🎵',
+    'Threads': '🧵',
+    'Snapchat': '👻',
+    'YouTube': '🎥',
+    'Voiceover': '🎙️',
+    'Email Marketing': '📧',
+    'Blog Article': '📝',
+    'Image Prompt': '🎨'
+  }
+
+  // Format platform headers with emojis
   formattedContent = formattedContent
     .split('\n')
     .map(line => {
       // Format platform headers
       if (line.startsWith('### ')) {
         const headerText = line.replace('### ', '').trim()
-        return `\n${headerText}\n${'─'.repeat(headerText.length)}`
+        const emoji = platformEmojis[headerText] || '📄'
+        return `\n${emoji} ${headerText}\n${'─'.repeat(headerText.length + 2)}`
       }
       return line
     })
     .join('\n')
+
+  // Format lists
+  formattedContent = formattedContent
+    .replace(/^- (.+)$/gm, '• $1') // Convert bullet points
+    .replace(/^(\d+)\. (.+)$/gm, '$1) $2') // Format numbered lists
+
+  // Format quotes
+  formattedContent = formattedContent
+    .replace(/^> (.+)$/gm, '│ $1') // Format blockquotes with a vertical line
+
+  // Add spacing around sections
+  formattedContent = formattedContent
+    .replace(/\n{2,}/g, '\n\n') // Normalize spacing between sections
+    .trim()
 
   return formattedContent
 }
@@ -242,7 +283,7 @@ ${platformInstructions}
 ${ragContext ? `\nRelevant context from provided web sources:\n${ragContext}\n\nPlease use this context to inform your response while maintaining accuracy and citing sources when appropriate.` : ''}
 
 ${platforms.length === 1 && platforms[0] === 'conversation' 
-  ? 'Please provide a natural, conversational response in a clear, well-structured format.'
+  ? 'Please provide a natural, conversational response in a clear, well-structured format. When sharing code, use proper code blocks with language specification.'
   : `Please generate content optimized for the following platforms ONLY:
 ${platforms.map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
 
@@ -251,9 +292,10 @@ Important Instructions:
 2. If Image Prompt is one of the platforms, create a dedicated section starting with "Image Prompt:" followed by a detailed visual description.
 3. For all other platforms, create separate sections starting with the platform name followed by a colon.
 4. Use clear formatting:
+   - For code blocks, use triple backticks with language specification: \`\`\`language
+   - For inline code, use single backticks: \`code\`
    - Use ** for emphasis
    - Use * for subtle emphasis
-   - Use [] for code or technical terms
    - Use > for quotes or notable content
    - Use - for bullet points
    - Use 1. 2. 3. for numbered lists
