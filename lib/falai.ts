@@ -103,7 +103,7 @@ export async function generateImage({
 
     // Submit the request with retry logic
     const { request_id } = await retry(() => 
-      fal.queue.submit('fal-ai/flux-pro', {
+      fal.queue.submit('fal-ai/flux/dev', {
         input: {
           prompt,
           negative_prompt,
@@ -111,8 +111,8 @@ export async function generateImage({
             width: 1920,
             height: 1080
           },
-          num_inference_steps: 35,
-          guidance_scale: 7.5,
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
           num_images: 1,
           seed: Math.floor(Math.random() * 10000000),
           scheduler: "DDIM",
@@ -127,7 +127,7 @@ export async function generateImage({
     const startTime = Date.now();
     
     while (Date.now() - startTime < TIMEOUT_MS) {
-      const status = await fal.queue.status('fal-ai/flux-pro', {
+      const status = await fal.queue.status('fal-ai/flux/dev', {
         requestId: request_id
       }) as QueueStatus;
 
@@ -138,7 +138,7 @@ export async function generateImage({
         
         // Get the result once completed
         const result = await retry(() => 
-          fal.queue.result('fal-ai/flux-pro', {
+          fal.queue.result('fal-ai/flux/dev', {
             requestId: request_id
           })
         ) as FalApiResponse;

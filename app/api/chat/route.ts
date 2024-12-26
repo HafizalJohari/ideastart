@@ -10,6 +10,7 @@ import { CerebrasClient } from '@/lib/cerebras'
 import { generateImage, type GenerateImageResponse } from '@/lib/falai'
 import { GeminiClient } from '@/lib/gemini'
 import { XAIClient } from '@/lib/xai'
+import { generateRAGContext } from '@/lib/rag'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -132,6 +133,7 @@ interface RequestBody {
   sessionId?: string
   messages?: Message[]
   directImageGeneration?: boolean
+  webUrls?: string[]
 }
 
 export async function POST(req: NextRequest) {
@@ -144,8 +146,23 @@ export async function POST(req: NextRequest) {
       tone = 'none',
       model = 'llama-3.3-70b',
       messages = [],
-      directImageGeneration = false
+      directImageGeneration = false,
+      webUrls = []
     } = await req.json()
+
+    // If web URLs are provided, generate RAG context
+    let ragContext = ''
+    let ragSources: string[] = []
+    if (webUrls.length > 0) {
+      try {
+        const { context, sources } = await generateRAGContext(message, webUrls)
+        ragContext = context
+        ragSources = sources
+      } catch (error) {
+        console.error('Error generating RAG context:', error)
+        // Continue without RAG if there's an error
+      }
+    }
 
     // If it's a direct image generation request, bypass the LLM
     if (directImageGeneration && platforms.includes('imagePrompt')) {
@@ -168,7 +185,6 @@ export async function POST(req: NextRequest) {
           tone,
           language
         })
-
       } catch (error) {
         console.error('Error generating image:', error)
         throw error
@@ -193,7 +209,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join('\n')
 
-    const systemMessage = `You are an expert in front desk and customer relations, specializing in creating engaging content for multiple platforms.
+    const systemMessage = `You are an expert in creating engaging content${platforms.length === 1 && platforms[0] === 'conversation' ? ' for natural conversations' : ' for multiple platforms'}.
 
 ${languageInstructions}
 
@@ -203,10 +219,21 @@ ${toneInstructions}
 
 ${platformInstructions}
 
-Please generate content optimized for the following platforms:
+${ragContext ? `\nRelevant context from provided web sources:\n${ragContext}\n\nPlease use this context to inform your response while maintaining accuracy and citing sources when appropriate.` : ''}
+
+${platforms.length === 1 && platforms[0] === 'conversation' 
+  ? 'Please provide a natural, conversational response without any platform-specific formatting.'
+  : `Please generate content optimized for the following platforms ONLY:
 ${platforms.map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
 
-When responding, please structure your response clearly for each platform when multiple are selected${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''} in a plain text format.`
+Important Instructions:
+1. Structure your response with clear sections for each platform.
+2. If Image Prompt is one of the platforms, create a dedicated section starting with "Image Prompt:" followed by a detailed visual description.
+3. For all other platforms, create separate sections starting with the platform name followed by a colon.
+4. ONLY generate content for the specifically requested platforms listed above.
+5. Do not include any other platforms in your response.`}
+
+Please structure your response ${platforms.length === 1 && platforms[0] === 'conversation' ? 'as a natural conversation' : 'clearly for each requested platform'}${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''} in a plain text format.`
 
     // Get AI response based on model
     let response
@@ -264,11 +291,17 @@ When responding, please structure your response clearly for each platform when m
       throw new Error('Empty response from AI')
     }
 
-    // Handle image generation after chat response
+    // Handle image generation after chat response if imagePrompt is included
     let imageUrl: string | undefined
-    if (platforms.includes('imagePrompt') && !directImageGeneration) {
+    if (platforms.includes('imagePrompt')) {
       try {
-        const imageResponse = await generateImage({ prompt: formattedResponse })
+        // Extract the image prompt from the formatted response if it exists
+        const imagePromptMatch = formattedResponse.match(/Image Prompt:\s*([\s\S]*?)(?=\n\n|\n?$)/i)
+        const imagePromptText = imagePromptMatch 
+          ? imagePromptMatch[1].trim()
+          : message // Use original message if no specific image prompt found
+
+        const imageResponse = await generateImage({ prompt: imagePromptText })
         imageUrl = imageResponse.images[0]?.url
       } catch (error) {
         console.error('Error generating image:', error)
@@ -278,7 +311,13 @@ When responding, please structure your response clearly for each platform when m
 
     return Response.json({
       response: formattedResponse,
-      imageUrl
+      imageUrl,
+      model,
+      platforms,
+      style,
+      tone,
+      language,
+      sources: ragSources
     })
 
   } catch (error) {

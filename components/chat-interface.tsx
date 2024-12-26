@@ -91,6 +91,7 @@ export default function ChatInterface() {
   const [textareaHeight, setTextareaHeight] = useState('50px')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const [debugMode, setDebugMode] = useState(false)
 
   // Global state from Zustand
   const {
@@ -361,6 +362,131 @@ export default function ChatInterface() {
     setCurrentSessionId(newSession.id)
   }
 
+  // Data management functions
+  const handleExportChats = () => {
+    try {
+      const data = {
+        sessions,
+        messages,
+        settings: {
+          selectedModel,
+          selectedLanguage,
+          selectedStyle,
+          selectedTone,
+          selectedPlatforms,
+          soundEnabled
+        }
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cerebchat-export-${new Date().toISOString()}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast({
+        title: 'Success',
+        description: 'Chat data exported successfully',
+      })
+    } catch (error) {
+      console.error('Error exporting chats:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to export chat data',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleImportChats = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async (e) => {
+      try {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+
+        const text = await file.text()
+        const data = JSON.parse(text)
+
+        // Validate imported data
+        if (!data.sessions || !Array.isArray(data.sessions)) {
+          throw new Error('Invalid import file format')
+        }
+
+        // Import sessions and messages
+        setSessions(data.sessions)
+        if (data.messages) setMessages(data.messages)
+
+        // Import settings if available
+        if (data.settings) {
+          setSelectedModel(data.settings.selectedModel || 'llama-3.3-70b')
+          setSelectedLanguage(data.settings.selectedLanguage || 'en')
+          setSelectedStyle(data.settings.selectedStyle || 'none')
+          setSelectedTone(data.settings.selectedTone || 'none')
+          setSelectedPlatforms(data.settings.selectedPlatforms || ['conversation'])
+          setSoundEnabled(data.settings.soundEnabled ?? true)
+        }
+
+        toast({
+          title: 'Success',
+          description: 'Chat data imported successfully',
+        })
+      } catch (error) {
+        console.error('Error importing chats:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to import chat data',
+          variant: 'destructive'
+        })
+      }
+    }
+    input.click()
+  }
+
+  const handleResetSettings = () => {
+    // Reset all settings to defaults
+    setSelectedModel('llama-3.3-70b')
+    setSelectedLanguage('en')
+    setSelectedStyle('none')
+    setSelectedTone('none')
+    setSelectedPlatforms(['conversation'])
+    setSoundEnabled(true)
+    setDebugMode(false)
+
+    toast({
+      title: 'Success',
+      description: 'Settings reset to defaults',
+    })
+  }
+
+  const handleClearAllData = () => {
+    if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+      // Clear all data
+      setSessions([])
+      setMessages([])
+      setCurrentSessionId('')
+      handleResetSettings()
+
+      // Clear local storage
+      localStorage.clear()
+
+      toast({
+        title: 'Success',
+        description: 'All data cleared successfully',
+      })
+    }
+  }
+
+  // Function to toggle debug mode
+  const handleDebugModeToggle = () => {
+    setDebugMode(!debugMode)
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Audio element for notification sound */}
@@ -391,6 +517,12 @@ export default function ChatInterface() {
         showThemeToggle={true}
         soundEnabled={soundEnabled}
         onSoundToggle={() => setSoundEnabled(!soundEnabled)}
+        debugMode={debugMode}
+        onDebugModeToggle={handleDebugModeToggle}
+        onExportChats={handleExportChats}
+        onImportChats={handleImportChats}
+        onResetSettings={handleResetSettings}
+        onClearAllData={handleClearAllData}
       />
 
       {/* Main Content */}

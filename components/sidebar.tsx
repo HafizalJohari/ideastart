@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react'
+import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight, Volume2, VolumeX, Download, Upload, RefreshCw, Trash2, Bug } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { LanguageSelector, type Language } from '@/components/language-selector'
@@ -11,10 +11,11 @@ import { StyleSelector, type CopywritingStyle } from '@/components/style-selecto
 import { ToneSelector, type WritingTone } from '@/components/tone-selector'
 import { PlatformSelector, type PlatformType } from '@/components/platform-selector'
 import { ModelSelector, type ModelType } from '@/components/model-selector'
+import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
 import type { Session, Translations } from "@/lib/types"
 import { translations } from "@/lib/translations"
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Switch } from '@/components/ui/switch'
 
 interface SidebarProps {
   isSidebarOpen: boolean
@@ -40,6 +41,12 @@ interface SidebarProps {
   showThemeToggle?: boolean
   soundEnabled: boolean
   onSoundToggle: () => void
+  debugMode?: boolean
+  onDebugModeToggle?: () => void
+  onExportChats?: () => void
+  onImportChats?: () => void
+  onResetSettings?: () => void
+  onClearAllData?: () => void
 }
 
 export function Sidebar({
@@ -66,6 +73,12 @@ export function Sidebar({
   showThemeToggle = false,
   soundEnabled,
   onSoundToggle,
+  debugMode = false,
+  onDebugModeToggle,
+  onExportChats,
+  onImportChats,
+  onResetSettings,
+  onClearAllData,
 }: SidebarProps) {
   return (
     <div className={cn(
@@ -88,7 +101,7 @@ export function Sidebar({
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
             {/* Model Selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Model</label>
@@ -160,6 +173,72 @@ export function Sidebar({
                 {showThemeToggle && (
                   <ThemeToggle />
                 )}
+              </div>
+            </div>
+
+            {/* Data Section */}
+            <div className="border-t pt-4">
+              <h2 className="text-lg font-semibold mb-4">Data</h2>
+              
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onExportChats}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Chats
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onImportChats}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import Chats
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={onResetSettings}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Reset Settings
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-destructive hover:text-destructive"
+                  onClick={onClearAllData}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear All Data
+                </Button>
+              </div>
+            </div>
+
+            {/* Advanced Section */}
+            <div className="border-t pt-4">
+              <h2 className="text-lg font-semibold mb-4">Advanced</h2>
+              
+              <div className="space-y-4">
+                {/* Debug Mode */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bug className="h-4 w-4" />
+                    <div className="flex flex-col">
+                      <span className="text-sm">Debug Mode</span>
+                      <span className="text-xs text-muted-foreground">Show technical information</span>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={debugMode}
+                    onCheckedChange={onDebugModeToggle}
+                    aria-label="Toggle debug mode"
+                  />
+                </div>
               </div>
             </div>
           </div>
