@@ -80,28 +80,45 @@ export function Sidebar({
   onResetSettings,
   onClearAllData,
 }: SidebarProps) {
+  React.useEffect(() => {
+    const header = document.getElementById('sidebar-header')
+    if (header) {
+      const updateHeaderHeight = () => {
+        const height = header.offsetHeight
+        document.documentElement.style.setProperty('--header-height', `${height}px`)
+      }
+
+      // Initial measurement
+      updateHeaderHeight()
+
+      // Setup resize observer
+      const resizeObserver = new ResizeObserver(updateHeaderHeight)
+      resizeObserver.observe(header)
+
+      return () => {
+        resizeObserver.disconnect()
+        document.documentElement.style.removeProperty('--header-height')
+      }
+    }
+  }, [])
+
   return (
     <div className={cn(
       "relative transition-[width] duration-200 ease-in-out",
       isSidebarOpen ? "w-80" : "w-0"
     )}>
       <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-80 bg-background border-r transform transition-all duration-200 ease-in-out md:relative",
+        "fixed inset-y-0 left-0 z-40 w-80 bg-background border-r transform transition-all duration-200 ease-in-out md:relative flex flex-col h-full",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h2 className="text-lg font-semibold">Settings</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+        {/* Header */}
+        <div className="flex items-center p-4 border-b shrink-0" id="sidebar-header">
+          <h2 className="text-lg font-semibold">Settings</h2>
+        </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 space-y-6">
             {/* Model Selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Model</label>
@@ -249,10 +266,14 @@ export function Sidebar({
           variant="ghost"
           size="icon"
           className={cn(
-            "absolute -right-4 top-1/2 -translate-y-1/2 hidden md:flex",
-            "h-8 w-8 rounded-full bg-background border shadow-sm",
+            "absolute -right-5 hidden md:flex",
+            "top-[calc(var(--header-height,_4rem)_+_0.5rem)]",
+            "h-8 w-8 rounded-full bg-background border shadow-md",
+            "hover:bg-accent hover:border-border",
+            "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           )}
           onClick={toggleSidebar}
+          aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
         >
           {isSidebarOpen ? (
             <ChevronLeft className="h-4 w-4" />

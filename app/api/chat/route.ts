@@ -46,20 +46,23 @@ function formatResponse(content: string): string {
   
   // Clean up the text and normalize spacing
   let formattedContent = content
-    .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks to maximum of 2
+    .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
     .trim()
 
-  // Format code blocks
+  // Format code blocks with syntax highlighting style
   formattedContent = formattedContent
     .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
-      const language = lang || ''
-      return `\n📝 ${language.toUpperCase()}\n${'─'.repeat(40)}\n${code.trim()}\n${'─'.repeat(40)}\n`
+      const language = lang ? lang.toUpperCase() : 'CODE'
+      return `
+╭──────────── ${language} ────────────╮
+${code.trim().split('\n').map((line: string) => '│ ' + line).join('\n')}
+╰${'─'.repeat(language.length + 24)}╯\n`
     })
 
-  // Format inline code
-  formattedContent = formattedContent.replace(/`([^`]+)`/g, '「$1」')
+  // Format inline code with special characters
+  formattedContent = formattedContent.replace(/`([^`]+)`/g, '『$1』')
 
-  // Format platform sections with emojis
+  // Format platform sections with emojis and decorative borders
   const platformEmojis: Record<string, string> = {
     'Twitter/X': '🐦',
     'LinkedIn': '💼',
@@ -75,32 +78,45 @@ function formatResponse(content: string): string {
     'Image Prompt': '🎨'
   }
 
-  // Format platform headers with emojis
+  // Format platform headers with decorative borders
   formattedContent = formattedContent
     .split('\n')
     .map(line => {
-      // Format platform headers
       if (line.startsWith('### ')) {
         const headerText = line.replace('### ', '').trim()
         const emoji = platformEmojis[headerText] || '📄'
-        return `\n${emoji} ${headerText}\n${'─'.repeat(headerText.length + 2)}`
+        const title = `${emoji}  ${headerText}`
+        const border = '═'.repeat(title.length + 2)
+        return `\n╔${border}╗\n║ ${title} ║\n╚${border}╝`
       }
       return line
     })
     .join('\n')
 
-  // Format lists
+  // Format lists with special bullets
   formattedContent = formattedContent
-    .replace(/^- (.+)$/gm, '• $1') // Convert bullet points
-    .replace(/^(\d+)\. (.+)$/gm, '$1) $2') // Format numbered lists
+    .replace(/^- (.+)$/gm, '◆ $1') // Convert bullet points to diamonds
+    .replace(/^(\d+)\. (.+)$/gm, '❑ $1. $2') // Add squares to numbered lists
 
-  // Format quotes
+  // Format quotes with decorative borders
   formattedContent = formattedContent
-    .replace(/^> (.+)$/gm, '│ $1') // Format blockquotes with a vertical line
+    .replace(/^> (.+)$/gm, (_, text) => {
+      const lines = text.split('\n')
+      return lines.map((line: string) => `┃ ${line}`).join('\n')
+    })
 
-  // Add spacing around sections
+  // Format important points
   formattedContent = formattedContent
-    .replace(/\n{2,}/g, '\n\n') // Normalize spacing between sections
+    .replace(/\*\*([^*]+)\*\*/g, '✧ $1 ✧') // Replace bold with special characters
+    .replace(/\*([^*]+)\*/g, '∼ $1 ∼') // Replace italic with special characters
+
+  // Add section separators
+  formattedContent = formattedContent
+    .replace(/\n\n(?=[A-Z])/g, '\n\n┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n\n') // Add separators between major sections
+
+  // Clean up final formatting
+  formattedContent = formattedContent
+    .replace(/\n{3,}/g, '\n\n') // Normalize spacing
     .trim()
 
   return formattedContent
