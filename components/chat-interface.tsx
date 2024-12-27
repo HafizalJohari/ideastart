@@ -54,7 +54,8 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
 
     if (!message.content) return []
 
-    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|��|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
+    // Split content by platform sections
+    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
     return sections.map(section => {
       const match = section.match(/^(🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)\s*([^:\n]+)(?:[:|\n])([\s\S]+)/)
       if (match) {
@@ -68,7 +69,7 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
   const sections = splitContent()
 
   return (
-    <div className="space-y-2 py-4">
+    <div className="space-y-4 py-4">
       {message.role === 'user' ? (
         // User message bubble
         <div className="flex justify-end mb-4">
@@ -81,10 +82,10 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
         </div>
       ) : (
         // Assistant message bubbles - one per platform
-        <>
+        <div className="space-y-4">
           {sections.map((section, index) => (
-            <div key={index} className="flex gap-3 mb-2">
-              <div className="flex gap-3 px-4 py-3 rounded-lg bg-muted/50 max-w-[80%]">
+            <div key={index} className="flex gap-3">
+              <div className="flex-1 flex gap-3 px-4 py-3 rounded-lg bg-muted/50">
                 <div className="flex-1 space-y-2">
                   {section.platform !== 'conversation' && (
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
@@ -99,8 +100,8 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
           ))}
           {/* Show image in a separate bubble if it exists */}
           {message.imageUrl && (
-            <div className="flex gap-3 mb-2">
-              <div className="flex gap-3 px-4 py-3 rounded-lg bg-muted/50 max-w-[80%]">
+            <div className="flex gap-3">
+              <div className="flex-1 flex gap-3 px-4 py-3 rounded-lg bg-muted/50">
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
                     🎨 Generated Image
@@ -114,27 +115,24 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
               </div>
             </div>
           )}
-        </>
-      )}
-      
-      {/* Metadata badges for assistant messages */}
-      {message.role === 'assistant' && (
-        <div className="flex flex-wrap gap-2 px-4 text-xs text-muted-foreground">
-          {message.model && (
-            <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-              Model: {message.model}
-            </span>
-          )}
-          {message.style && message.style !== 'none' && (
-            <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-              Style: {message.style}
-            </span>
-          )}
-          {message.tone && message.tone !== 'none' && (
-            <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-              Tone: {message.tone}
-            </span>
-          )}
+          {/* Metadata badges */}
+          <div className="flex flex-wrap gap-2 px-4 text-xs text-muted-foreground">
+            {message.model && (
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+                Model: {message.model}
+              </span>
+            )}
+            {message.style && message.style !== 'none' && (
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+                Style: {message.style}
+              </span>
+            )}
+            {message.tone && message.tone !== 'none' && (
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+                Tone: {message.tone}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
