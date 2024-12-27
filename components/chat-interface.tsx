@@ -377,7 +377,7 @@ export default function ChatInterface() {
     // Create a new session
     const newSession: Session = {
       id: crypto.randomUUID(),
-      name: `Chat ${sessions.length + 1}`,
+      name: `Chat ${(sessions || []).length + 1}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       model: 'llama-3.3-70b',
@@ -388,7 +388,7 @@ export default function ChatInterface() {
     }
 
     // Add new session to sessions list and save it
-    setSessions(prev => [newSession, ...prev])
+    setSessions((prev: Session[]) => [newSession, ...(prev || [])])
     setCurrentSessionId(newSession.id)
   }
 
@@ -411,11 +411,16 @@ export default function ChatInterface() {
   const handleCreateSession = () => {
     const newSession: Session = {
       id: crypto.randomUUID(),
-      name: `Chat ${sessions.length + 1}`,
+      name: `Chat ${(sessions || []).length + 1}`,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      model: 'llama-3.3-70b',
+      platforms: ['conversation'],
+      language: 'en',
+      style: 'none',
+      tone: 'none'
     }
-    setSessions(prev => [newSession, ...prev])
+    setSessions((prev: Session[]) => [newSession, ...(prev || [])])
     setCurrentSessionId(newSession.id)
   }
 
