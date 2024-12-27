@@ -18,12 +18,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
+import { Twitter, Linkedin, Facebook, Instagram, Music, MessageSquare, Ghost, Youtube, Mic, Mail, FileText, Image, Code, MessageCircle } from "lucide-react"
 
 export const platformData = {
   'conversation': {
+    emoji: <MessageCircle className="h-4 w-4" />,
     title: 'Conversation',
-    description: 'General conversation without platform-specific formatting',
-    emoji: '💬'
+    description: 'Natural chat interaction'
   },
   'twitter': {
     title: 'Twitter/X',
@@ -73,6 +74,12 @@ export const platformData = {
   imagePrompt: {
     emoji: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
     title: 'Image Prompt',
+  },
+  codeDocumentation: {
+    emoji: <Code className="h-4 w-4" />,
+    title: 'Code Documentation',
+    description: 'Generate code documentation',
+    isNew: true
   }
 } as const
 

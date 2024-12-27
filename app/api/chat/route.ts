@@ -173,6 +173,10 @@ const platformData = {
     name: 'Image Prompt',
     instructions: 'Create a detailed, descriptive prompt for image generation that captures the visual elements, style, composition, and mood of the request'
   },
+  codeDocumentation: {
+    name: 'Code Documentation',
+    instructions: 'Generate comprehensive code documentation including function descriptions, parameter explanations, return values, usage examples, and any important notes or caveats. Focus on clarity and completeness.'
+  },
   conversation: {
     name: 'Conversation',
     instructions: 'Natural, conversational responses optimized for chat interactions'

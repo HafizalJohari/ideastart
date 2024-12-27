@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent, useEffect, useRef } from 'react'
-import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe } from 'lucide-react'
+import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe, FileCode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,6 +33,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
+import { CodeUploadDialog } from '@/components/code-upload-dialog'
 
 interface CodeComponentProps {
   node?: any
@@ -67,7 +68,7 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
     if (!message.content) return []
 
     // Split content by platform sections
-    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
+    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|���|📝|🎨)/)
     return sections.map(section => {
       const match = section.match(/^(🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)\s*([^:\n]+)(?:[:|\n])([\s\S]+)/)
       if (match) {
@@ -346,6 +347,11 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
+      // Determine model based on platform selection
+      const effectiveModel = selectedPlatforms.includes('codeDocumentation') 
+        ? 'llama-3.1-8b-instant' 
+        : selectedModel
+
       // Add user message first
       const userMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
@@ -355,7 +361,7 @@ export default function ChatInterface() {
         platforms: selectedPlatforms,
         style: selectedStyle,
         tone: selectedTone,
-        model: selectedModel
+        model: effectiveModel
       }
       addMessage(userMessage)
 
@@ -373,13 +379,13 @@ export default function ChatInterface() {
           language: selectedLanguage,
           style: selectedStyle,
           tone: selectedTone,
-          model: selectedModel,
+          model: effectiveModel,
           messages: messages.slice(-10),
           directImageGeneration: selectedPlatforms.length === 1 && selectedPlatforms[0] === 'imagePrompt',
           webUrls: webUrls,
           useMarkdown,
           persona: activePersona,
-          codeFiles: codeFiles // Add code files to the request
+          codeFiles: codeFiles
         }),
       })
 
@@ -398,7 +404,7 @@ export default function ChatInterface() {
         platforms: selectedPlatforms,
         style: selectedStyle,
         tone: selectedTone,
-        model: selectedModel,
+        model: effectiveModel,
         imageUrl: data.imageUrl,
         sources: data.sources
       }
@@ -783,6 +789,8 @@ export default function ChatInterface() {
   const handlePersonaEdit = (persona: UserPersona) => {
     updatePersona(persona.id, persona)
   }
+
+  const showCodeUploadButton = selectedPlatforms.includes('codeDocumentation')
 
   return (
     <div className="flex h-screen overflow-hidden">
