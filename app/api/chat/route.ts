@@ -13,6 +13,7 @@ import { GeminiClient } from '@/lib/gemini'
 import { XAIClient } from '@/lib/xai'
 import { generateRAGContext } from '@/lib/rag'
 import { CohereClient } from '@/lib/cohere'
+import { GroqClient } from '@/lib/groq'
 
 interface FalImage {
   url: string
@@ -191,6 +192,7 @@ interface RequestBody {
   webUrls?: string[]
   useMarkdown?: boolean
   persona?: UserPersona
+  codeFiles?: Array<{name: string, content: string}>
 }
 
 // Add debug logging for RAG process
@@ -211,7 +213,8 @@ export async function POST(req: NextRequest) {
       directImageGeneration = false,
       webUrls = [],
       useMarkdown = true,
-      persona = null
+      persona = null,
+      codeFiles = []
     } = await req.json()
 
     logRAGDebug('Request received with web URLs:', webUrls)
@@ -303,6 +306,11 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join('\n')
 
+    // Add code files context if available
+    const codeFilesContext = codeFiles.length > 0
+      ? `\nRelevant code files:\n${codeFiles.map((file: {name: string, content: string}) => `\nFile: ${file.name}\n\`\`\`\n${file.content}\n\`\`\``).join('\n')}`
+      : ''
+
     const systemMessage = `You are an expert in creating engaging content${platforms.length === 1 && platforms[0] === 'conversation' ? ' for natural conversations' : ' for multiple platforms'}.
 
 ${persona ? `You are speaking with a ${persona.role}${persona.industry ? ` in the ${persona.industry} industry` : ''}.
@@ -324,6 +332,8 @@ ${toneInstructions}
 ${platformInstructions}
 
 ${ragContext ? `\nRelevant context from provided web sources:\n${ragContext}\n\nPlease use this context to inform your response while maintaining accuracy and citing sources when appropriate.` : ''}
+
+${codeFilesContext}
 
 ${platforms.length === 1 && platforms[0] === 'conversation' 
   ? `Please provide a natural, conversational response in ${language === 'en' ? 'English' : language} language in a clear, well-structured format. When sharing code, use proper code blocks with language specification.
@@ -396,11 +406,14 @@ Remember: The ENTIRE response must be in ${language === 'en' ? 'English' : langu
       response = await xai.chat({
         messages: [systemMsg, userMsg]
       })
-    } else if (model === 'command-') {
+    } else if (model === 'command-r-plus-08-2024') {
       const cohere = new CohereClient()
       response = await cohere.chat({
         messages: [systemMsg, userMsg]
       })
+    } else if (model === 'llama-3.1-8b-instant') {
+      const groqClient = new GroqClient(process.env.GROQ_API_KEY || '')
+      response = await groqClient.sendMessage([systemMsg, userMsg])
     } else {
       const cerebras = new CerebrasClient()
       response = await cerebras.chat({

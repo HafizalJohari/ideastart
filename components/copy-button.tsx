@@ -1,55 +1,41 @@
 'use client'
 
 import * as React from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
-interface CopyButtonProps {
+export interface CopyButtonProps extends React.HTMLAttributes<HTMLButtonElement> {
   value: string
-  className?: string
+  variant?: 'default' | 'ghost' | 'outline'
 }
 
-export function CopyButton({ value, className }: CopyButtonProps) {
+export function CopyButton({ value, className, variant = 'default', ...props }: CopyButtonProps) {
   const [hasCopied, setHasCopied] = React.useState(false)
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setHasCopied(true)
-      setTimeout(() => setHasCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy text:', error)
+  React.useEffect(() => {
+    if (hasCopied) {
+      const timeout = setTimeout(() => setHasCopied(false), 2000)
+      return () => clearTimeout(timeout)
     }
-  }
+  }, [hasCopied])
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            className={className}
-            onClick={handleCopy}
-          >
-            {hasCopied ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-            <span className="sr-only">Copy message</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" sideOffset={5}>
-          {hasCopied ? 'Copied!' : 'Copy message'}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      size="icon"
+      variant={variant}
+      className={cn(
+        'relative z-10 h-6 w-6',
+        className
+      )}
+      onClick={() => {
+        navigator.clipboard.writeText(value)
+        setHasCopied(true)
+      }}
+      {...props}
+    >
+      <span className="sr-only">Copy</span>
+      {hasCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+    </Button>
   )
 } 

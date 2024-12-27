@@ -45,6 +45,13 @@ export const models: Record<string, ModelInfo> = {
     provider: 'Cerebras',
     icon: <Sparkles className="h-4 w-4 text-blue-500" />
   },
+  'llama-3.1-8b-instant': {
+    name: 'Llama 3.1 8B Instant',
+    description: 'Fast and efficient Llama model for quick responses',
+    provider: 'Groq',
+    icon: <Sparkles className="h-4 w-4 text-orange-500" />,
+    isNew: true
+  },
   'claude-3-5-haiku-20241022': {
     name: 'Claude 3.5 Haiku',
     description: 'Fast and efficient model from Anthropic',

@@ -87,19 +87,53 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
       const code = String(children).replace(/\n$/, '')
 
       return match ? (
-        <div className="relative">
-          <div className="absolute right-2 top-2 text-xs text-muted-foreground">
-            {language.toUpperCase()}
+        <div className="relative my-4 rounded-lg bg-black/90 p-4">
+          <div className="absolute right-4 top-4 flex items-center space-x-2">
+            <span className="text-xs text-zinc-400">{language.toUpperCase()}</span>
+            <CopyButton value={String(children)} variant="ghost" className="text-xs text-zinc-400 hover:bg-zinc-800" />
           </div>
-          <pre className="!mt-0 !mb-0">
-            <code className={className}>
+          <div className="overflow-x-auto pt-4">
+            <SyntaxHighlighter
+              language={language}
+              style={oneDark}
+              customStyle={{
+                margin: 0,
+                padding: 0,
+                background: 'transparent'
+              }}
+            >
               {code}
-            </code>
-          </pre>
+            </SyntaxHighlighter>
+          </div>
         </div>
       ) : (
-        <code className={className}>{children}</code>
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">{children}</code>
       )
+    },
+    // Add styles for other markdown elements
+    p({ children }) {
+      return <p className="mb-4 last:mb-0">{children}</p>
+    },
+    ul({ children }) {
+      return <ul className="mb-4 list-disc pl-8 last:mb-0">{children}</ul>
+    },
+    ol({ children }) {
+      return <ol className="mb-4 list-decimal pl-8 last:mb-0">{children}</ol>
+    },
+    li({ children }) {
+      return <li className="mb-2 last:mb-0">{children}</li>
+    },
+    blockquote({ children }) {
+      return <blockquote className="mt-4 border-l-4 border-zinc-700/50 pl-4 italic">{children}</blockquote>
+    },
+    h1({ children }) {
+      return <h1 className="mb-4 text-2xl font-bold">{children}</h1>
+    },
+    h2({ children }) {
+      return <h2 className="mb-3 text-xl font-bold">{children}</h2>
+    },
+    h3({ children }) {
+      return <h3 className="mb-2 text-lg font-bold">{children}</h3>
     }
   }
 
@@ -193,6 +227,8 @@ export default function ChatInterface() {
   const [webUrls, setWebUrls] = useState<string[]>([])
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [useMarkdown, setUseMarkdown] = useState(true)
+  const [codeFiles, setCodeFiles] = useState<{name: string, content: string}[]>([])
+  const [showCodeUpload, setShowCodeUpload] = useState(false)
 
   // Global state from Zustand
   const {
@@ -342,7 +378,8 @@ export default function ChatInterface() {
           directImageGeneration: selectedPlatforms.length === 1 && selectedPlatforms[0] === 'imagePrompt',
           webUrls: webUrls,
           useMarkdown,
-          persona: activePersona // Add persona to the request
+          persona: activePersona,
+          codeFiles: codeFiles // Add code files to the request
         }),
       })
 
@@ -368,6 +405,10 @@ export default function ChatInterface() {
 
       addMessage(assistantMessage)
       playNotificationSound()
+
+      // Clear code files after successful request
+      setCodeFiles([])
+      setShowCodeUpload(false)
 
     } catch (error) {
       console.error('Error:', error)
@@ -653,6 +694,92 @@ export default function ChatInterface() {
     </div>
   )
 
+  // Handle code file upload
+  const handleCodeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    const newCodeFiles: {name: string, content: string}[] = []
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (file.type === 'text/plain' || file.name.endsWith('.js') || file.name.endsWith('.ts') || 
+          file.name.endsWith('.jsx') || file.name.endsWith('.tsx') || file.name.endsWith('.py') ||
+          file.name.endsWith('.java') || file.name.endsWith('.cpp') || file.name.endsWith('.c') ||
+          file.name.endsWith('.html') || file.name.endsWith('.css') || file.name.endsWith('.json')) {
+        try {
+          const content = await file.text()
+          newCodeFiles.push({
+            name: file.name,
+            content: content
+          })
+        } catch (error) {
+          console.error(`Error reading file ${file.name}:`, error)
+          toast({
+            title: 'Error',
+            description: `Failed to read file ${file.name}`,
+            variant: 'destructive'
+          })
+        }
+      }
+    }
+
+    if (newCodeFiles.length > 0) {
+      setCodeFiles(prev => [...prev, ...newCodeFiles])
+      toast({
+        title: 'Success',
+        description: `${newCodeFiles.length} code file(s) uploaded successfully`
+      })
+    }
+  }
+
+  // Handle code file removal
+  const handleRemoveCodeFile = (fileName: string) => {
+    setCodeFiles(prev => prev.filter(file => file.name !== fileName))
+  }
+
+  // Code files upload component
+  const CodeFilesUpload = () => (
+    <div className="flex flex-col gap-2 p-2 border-t">
+      <div className="flex items-center gap-2">
+        <Input
+          type="file"
+          accept=".js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.html,.css,.json,.txt"
+          multiple
+          onChange={handleCodeFileUpload}
+          className="flex-1"
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowCodeUpload(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      {codeFiles.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {codeFiles.map((file, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-1 text-xs bg-muted rounded-full px-2 py-1"
+            >
+              <span className="truncate max-w-[200px]">{file.name}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4"
+                onClick={() => handleRemoveCodeFile(file.name)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   const handlePersonaEdit = (persona: UserPersona) => {
     updatePersona(persona.id, persona)
   }
@@ -796,6 +923,7 @@ export default function ChatInterface() {
           {/* Chat Input */}
           <div className="border-t">
             {showUrlInput && <UrlInput />}
+            {showCodeUpload && <CodeFilesUpload />}
             <div className="p-4">
               <form onSubmit={handleSubmit} className="flex items-end gap-2">
                 <div className="flex-1">
@@ -818,6 +946,24 @@ export default function ChatInterface() {
                   />
                 </div>
                 <div className="flex gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setShowCodeUpload(!showCodeUpload)}
+                          className="h-8 w-8"
+                        >
+                          <Code className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Upload code files</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>

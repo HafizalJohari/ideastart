@@ -44,7 +44,7 @@ export class CohereClient {
           'X-Client-Name': 'cerebchat'
         },
         body: JSON.stringify({
-          model: 'command-r-plus-08-2024',
+          model: 'command-r7b-12-2024',
           messages: cohereMessages,
           stream: false,
           temperature: 0.3,
