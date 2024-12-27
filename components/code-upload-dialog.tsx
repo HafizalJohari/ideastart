@@ -50,7 +50,7 @@ export function CodeUploadDialog({ open, onOpenChange, onUpload }: CodeUploadDia
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".js,.jsx,.ts,.tsx,.py,.java,.cpp,.c,.cs,.rb,.php,.go,.rs,.swift"
+              accept=".js,.jsx,.ts,.tsx,.py,.java,.cpp,.c,.cs,.rb,.php,.go,.rs,.swift,.md"
               className="hidden"
               multiple
             />

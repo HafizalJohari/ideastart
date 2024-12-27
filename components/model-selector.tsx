@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Sparkles, Bot } from "lucide-react"
+import { Check, ChevronsUpDown, Bot, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -100,11 +100,20 @@ export function ModelSelector({ selectedModel, onModelChange, className }: Model
           className={cn("w-full justify-between", className)}
         >
           <div className="flex items-center gap-2 truncate">
-            {models[selectedModel].icon}
-            <span className="truncate">{models[selectedModel].name}</span>
-            <span className="ml-2 rounded-lg bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              {models[selectedModel].provider}
-            </span>
+            {selectedModel && models[selectedModel] ? (
+              <>
+                {models[selectedModel].icon}
+                <span className="truncate">{models[selectedModel].name}</span>
+                <span className="ml-2 rounded-lg bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  {models[selectedModel].provider}
+                </span>
+              </>
+            ) : (
+              <>
+                <Bot className="h-4 w-4" />
+                <span className="truncate">Select a model...</span>
+              </>
+            )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>

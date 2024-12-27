@@ -87,11 +87,11 @@ export const useChatStore = create<ChatState>()(
         const { sessions } = get()
         const updatedSessions = sessions.map(session => ({
           ...session,
-          language: session.language === 'my' ? 'ms' : session.language
-        }))
+          language: session.language === 'ms' ? 'ms' : session.language
+        })) as Session[]
         set({ 
           sessions: updatedSessions,
-          selectedLanguage: get().selectedLanguage === 'my' ? 'ms' : get().selectedLanguage
+          selectedLanguage: get().selectedLanguage === 'ms' ? 'ms' : get().selectedLanguage
         })
       },
 

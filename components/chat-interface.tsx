@@ -34,6 +34,8 @@ import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 import { CodeUploadDialog } from '@/components/code-upload-dialog'
+import { AdvancedSettingsDialog } from '@/components/advanced-settings-dialog'
+import { useTheme } from "next-themes"
 
 interface CodeComponentProps {
   node?: any
@@ -68,7 +70,7 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
     if (!message.content) return []
 
     // Split content by platform sections
-    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|���|📝|🎨)/)
+    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
     return sections.map(section => {
       const match = section.match(/^(🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)\s*([^:\n]+)(?:[:|\n])([\s\S]+)/)
       if (match) {
@@ -230,6 +232,7 @@ export default function ChatInterface() {
   const [useMarkdown, setUseMarkdown] = useState(true)
   const [codeFiles, setCodeFiles] = useState<{name: string, content: string}[]>([])
   const [showCodeUpload, setShowCodeUpload] = useState(false)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
   // Global state from Zustand
   const {
@@ -269,6 +272,10 @@ export default function ChatInterface() {
     setActivePersonaId,
     migrateLanguageCode
   } = useChatStore()
+
+  // Theme state
+  const { theme, setTheme } = useTheme()
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
 
   // Run language code migration on mount
   useEffect(() => {
@@ -519,85 +526,69 @@ export default function ChatInterface() {
 
   // Data management functions
   const handleExportChats = () => {
-    try {
-      const data = {
-        sessions,
-        messages,
-        settings: {
-          selectedModel,
-          selectedLanguage,
-          selectedStyle,
-          selectedTone,
-          selectedPlatforms,
-          soundEnabled
-        }
+    const chatData = {
+      messages,
+      sessions,
+      settings: {
+        soundEnabled,
+        useMarkdown,
+        selectedLanguage,
+        selectedStyle,
+        selectedTone,
+        selectedModel,
+        selectedPlatforms
       }
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `cerebchat-export-${new Date().toISOString()}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      
-      toast({
-        title: 'Success',
-        description: 'Chat data exported successfully',
-      })
-    } catch (error) {
-      console.error('Error exporting chats:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to export chat data',
-        variant: 'destructive'
-      })
     }
+    
+    const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cerebchat-export-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const handleImportChats = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.json'
+    input.accept = 'application/json'
     input.onchange = async (e) => {
-      try {
-        const file = (e.target as HTMLInputElement).files?.[0]
-        if (!file) return
-
-        const text = await file.text()
-        const data = JSON.parse(text)
-
-        // Validate imported data
-        if (!data.sessions || !Array.isArray(data.sessions)) {
-          throw new Error('Invalid import file format')
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        try {
+          const text = await file.text()
+          const data = JSON.parse(text)
+          
+          // Import messages and sessions
+          data.messages?.forEach((msg: MessageType) => addMessage(msg))
+          data.sessions?.forEach((session: Session) => saveChatSession(session))
+          
+          // Import settings
+          if (data.settings) {
+            setSoundEnabled(data.settings.soundEnabled ?? true)
+            setUseMarkdown(data.settings.useMarkdown ?? true)
+            setSelectedLanguage(data.settings.selectedLanguage ?? 'en')
+            setSelectedStyle(data.settings.selectedStyle ?? 'default')
+            setSelectedTone(data.settings.selectedTone ?? 'default')
+            setSelectedModel(data.settings.selectedModel ?? 'gpt-4')
+            setSelectedPlatforms(data.settings.selectedPlatforms ?? [])
+          }
+          
+          toast({
+            title: 'Import Successful',
+            description: 'Your chat history and settings have been imported.'
+          })
+        } catch (error) {
+          console.error('Import error:', error)
+          toast({
+            title: 'Import Failed',
+            description: 'There was an error importing your data. Please check the file format.',
+            variant: 'destructive'
+          })
         }
-
-        // Import sessions and messages
-        setSessions(data.sessions)
-        if (data.messages) setMessages(data.messages)
-
-        // Import settings if available
-        if (data.settings) {
-          setSelectedModel(data.settings.selectedModel || 'llama-3.3-70b')
-          setSelectedLanguage(data.settings.selectedLanguage || 'en')
-          setSelectedStyle(data.settings.selectedStyle || 'none')
-          setSelectedTone(data.settings.selectedTone || 'none')
-          setSelectedPlatforms(data.settings.selectedPlatforms || ['conversation'])
-          setSoundEnabled(data.settings.soundEnabled ?? true)
-        }
-
-        toast({
-          title: 'Success',
-          description: 'Chat data imported successfully',
-        })
-      } catch (error) {
-        console.error('Error importing chats:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to import chat data',
-          variant: 'destructive'
-        })
       }
     }
     input.click()
@@ -605,36 +596,34 @@ export default function ChatInterface() {
 
   const handleResetSettings = () => {
     // Reset all settings to defaults
-    setSelectedModel('llama-3.3-70b')
+    setSoundEnabled(true)
+    setUseMarkdown(true)
     setSelectedLanguage('en')
     setSelectedStyle('none')
-    setSelectedTone('none')
-    setSelectedPlatforms(['conversation'])
-    setSoundEnabled(true)
-    setDebugMode(false)
-
+    setSelectedTone('professional')
+    setSelectedModel('gpt-4')
+    setSelectedPlatforms([])
+    
     toast({
-      title: 'Success',
-      description: 'Settings reset to defaults',
+      title: 'Settings Reset',
+      description: 'All settings have been restored to their default values.'
     })
   }
 
   const handleClearAllData = () => {
-    if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      // Clear all data
-      setSessions([])
-      setMessages([])
-      setCurrentSessionId('')
-      handleResetSettings()
-
-      // Clear local storage
-      localStorage.clear()
-
-      toast({
-        title: 'Success',
-        description: 'All data cleared successfully',
-      })
-    }
+    // Clear all messages and sessions
+    setMessages([])
+    setSessions([])
+    setCurrentSessionId('')
+    
+    // Reset settings
+    handleResetSettings()
+    
+    toast({
+      title: 'Data Cleared',
+      description: 'All chat history and settings have been cleared.',
+      variant: 'destructive'
+    })
   }
 
   // Function to toggle debug mode
@@ -819,17 +808,6 @@ export default function ChatInterface() {
         onCreateNewSession={handleNewChat}
         onSelectSession={setCurrentSessionId}
         onDeleteSession={handleDeleteSession}
-        showThemeToggle={true}
-        soundEnabled={soundEnabled}
-        onSoundToggle={() => setSoundEnabled(!soundEnabled)}
-        debugMode={debugMode}
-        onDebugModeToggle={handleDebugModeToggle}
-        onExportChats={handleExportChats}
-        onImportChats={handleImportChats}
-        onResetSettings={handleResetSettings}
-        onClearAllData={handleClearAllData}
-        useMarkdown={useMarkdown}
-        onMarkdownToggle={() => setUseMarkdown(!useMarkdown)}
         personas={personas}
         activePersonaId={activePersonaId}
         onPersonaChange={setActivePersonaId}
@@ -863,6 +841,14 @@ export default function ChatInterface() {
               </Button>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAdvancedSettings(true)}
+                className="h-8 w-8"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
               {/* Right side of header - can be used for other features */}
             </div>
           </div>
@@ -1105,6 +1091,23 @@ export default function ChatInterface() {
           </div>
         </div>
       </div>
+
+      <AdvancedSettingsDialog
+        open={showAdvancedSettings}
+        onOpenChange={setShowAdvancedSettings}
+        soundEnabled={soundEnabled}
+        onSoundEnabledChange={setSoundEnabled}
+        markdownEnabled={useMarkdown}
+        onMarkdownEnabledChange={setUseMarkdown}
+        darkMode={theme === 'dark'}
+        onDarkModeChange={toggleTheme}
+        debugMode={debugMode}
+        onDebugModeChange={handleDebugModeToggle}
+        onExportChats={handleExportChats}
+        onImportChats={handleImportChats}
+        onResetSettings={handleResetSettings}
+        onClearAllData={handleClearAllData}
+      />
     </div>
   )
 } 
