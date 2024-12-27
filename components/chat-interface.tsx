@@ -22,6 +22,12 @@ import type { Message as MessageType, Session, ChatState, ChatMemory } from '@/l
 import { translations } from '@/lib/translations'
 import { ChatHistory } from '@/components/chat-history'
 import { useChatStore } from '@/lib/store'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface ExtendedMessage extends Omit<MessageType, 'id' | 'timestamp'> {
   id: string
@@ -40,46 +46,97 @@ type ExtendedSession = Session
 const t = translations.en // Default to English
 
 function MessageComponent({ message }: { message: ExtendedMessage }) {
+  // Split content into platform sections if it contains multiple platforms
+  const splitContent = () => {
+    if (message.role === 'user') {
+      return [{ platform: 'user', content: message.content }]
+    }
+
+    if (!message.content) return []
+
+    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
+    return sections.map(section => {
+      const match = section.match(/^(🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)\s*([^:\n]+)(?:[:|\n])([\s\S]+)/)
+      if (match) {
+        const [, emoji, platform, content] = match
+        return { platform, emoji, content: content.trim() }
+      }
+      return { platform: 'conversation', content: section.trim() }
+    }).filter(section => section.content)
+  }
+
+  const sections = splitContent()
+
   return (
-    <div className={cn(
-      "flex gap-3 p-4",
-      message.role === 'assistant' ? "bg-muted/50" : "bg-background"
-    )}>
-      <div className="flex-1 space-y-2">
-        <p className="text-sm">{message.content}</p>
-        {message.imageUrl && (
-          <img 
-            src={message.imageUrl} 
-            alt="Generated image"
-            className="rounded-lg max-w-sm mt-2"
-          />
-        )}
-        {message.role === 'assistant' && (
-          <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
-            {message.model && (
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-                Model: {message.model}
-              </span>
-            )}
-            {message.platforms && message.platforms.length > 0 && (
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-                Platform: {message.platforms.join(', ')}
-              </span>
-            )}
-            {message.style && message.style !== 'none' && (
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-                Style: {message.style}
-              </span>
-            )}
-            {message.tone && message.tone !== 'none' && (
-              <span className="inline-flex items-center rounded-full border px-2 py-0.5">
-                Tone: {message.tone}
-              </span>
-            )}
+    <div className="space-y-2 py-4">
+      {message.role === 'user' ? (
+        // User message bubble
+        <div className="flex justify-end mb-4">
+          <div className="flex gap-3 px-4 py-3 rounded-lg bg-primary text-primary-foreground max-w-[80%]">
+            <div className="flex-1">
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            </div>
+            <CopyButton value={message.content} />
           </div>
-        )}
-      </div>
-      <CopyButton value={message.content} />
+        </div>
+      ) : (
+        // Assistant message bubbles - one per platform
+        <>
+          {sections.map((section, index) => (
+            <div key={index} className="flex gap-3 mb-2">
+              <div className="flex gap-3 px-4 py-3 rounded-lg bg-muted/50 max-w-[80%]">
+                <div className="flex-1 space-y-2">
+                  {section.platform !== 'conversation' && (
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                      {section.emoji} {section.platform}
+                    </div>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap">{section.content}</p>
+                </div>
+                <CopyButton value={section.content} />
+              </div>
+            </div>
+          ))}
+          {/* Show image in a separate bubble if it exists */}
+          {message.imageUrl && (
+            <div className="flex gap-3 mb-2">
+              <div className="flex gap-3 px-4 py-3 rounded-lg bg-muted/50 max-w-[80%]">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                    🎨 Generated Image
+                  </div>
+                  <img 
+                    src={message.imageUrl} 
+                    alt="Generated image"
+                    className="rounded-lg w-full max-w-2xl mt-2"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      
+      {/* Metadata badges for assistant messages */}
+      {message.role === 'assistant' && (
+        <div className="flex flex-wrap gap-2 px-4 text-xs text-muted-foreground">
+          {message.model && (
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+              Model: {message.model}
+            </span>
+          )}
+          {message.style && message.style !== 'none' && (
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+              Style: {message.style}
+            </span>
+          )}
+          {message.tone && message.tone !== 'none' && (
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+              Tone: {message.tone}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -95,6 +152,7 @@ export default function ChatInterface() {
   const [debugMode, setDebugMode] = useState(false)
   const [webUrls, setWebUrls] = useState<string[]>([])
   const [showUrlInput, setShowUrlInput] = useState(false)
+  const [useMarkdown, setUseMarkdown] = useState(true)
 
   // Global state from Zustand
   const {
@@ -191,58 +249,45 @@ export default function ChatInterface() {
     }
   }, [currentSessionId, loadSessionMessages])
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!input.trim() || isLoading) return
+    if (!input.trim()) return
+
+    const newMessage = input.trim()
+    setInput('')
+    setIsLoading(true)
 
     try {
-      setIsLoading(true)
-
-      // Create user message
+      // Add user message first
       const userMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
         role: 'user',
-        content: input,
+        content: newMessage,
         timestamp: new Date().toISOString(),
-        platforms: selectedPlatforms as PlatformType[],
-        style: selectedStyle as CopywritingStyle,
-        tone: selectedTone as WritingTone,
-        model: selectedModel as ModelType
+        platforms: selectedPlatforms,
+        style: selectedStyle,
+        tone: selectedTone,
+        model: selectedModel
       }
-
-      // Add user message to chat and memory
       addMessage(userMessage)
 
-      // Clear input
-      setInput('')
-      setWebUrls([]) // Clear URLs after submission
-
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = '50px'
-        setTextareaHeight('50px')
-      }
-
-      // Prepare request body
-      const requestBody = {
-        message: input,
-        platforms: selectedPlatforms.length > 0 ? selectedPlatforms : ['conversation'],
-        language: selectedLanguage || 'en',
-        style: selectedStyle || 'none',
-        tone: selectedTone || 'none',
-        model: selectedModel || 'llama-3.3-70b',
-        sessionId: currentSessionId,
-        messages: messages.slice(-10), // Send last 10 messages for context
-        directImageGeneration: selectedPlatforms.includes('imagePrompt'),
-        webUrls // Add web URLs to request
-      }
-
-      // Send request to API
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: newMessage,
+          platforms: selectedPlatforms,
+          language: selectedLanguage,
+          style: selectedStyle,
+          tone: selectedTone,
+          model: selectedModel,
+          messages: messages.slice(-10),
+          directImageGeneration: selectedPlatforms.length === 1 && selectedPlatforms[0] === 'imagePrompt',
+          webUrls: webUrls,
+          useMarkdown
+        }),
       })
 
       if (!response.ok) {
@@ -251,7 +296,7 @@ export default function ChatInterface() {
 
       const data = await response.json()
 
-      // Add assistant message to chat and memory
+      // Add assistant message
       const assistantMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -262,12 +307,10 @@ export default function ChatInterface() {
         tone: selectedTone,
         model: selectedModel,
         imageUrl: data.imageUrl,
-        sources: data.sources // Add sources to message
+        sources: data.sources
       }
 
       addMessage(assistantMessage)
-
-      // Play notification sound
       playNotificationSound()
 
     } catch (error) {
@@ -278,7 +321,7 @@ export default function ChatInterface() {
         variant: 'destructive'
       })
 
-      // Add error message to chat
+      // Add error message
       const errorMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -296,7 +339,7 @@ export default function ChatInterface() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e as unknown as FormEvent)
+      handleSubmit(e as unknown as React.FormEvent)
     }
   }
 
@@ -587,6 +630,8 @@ export default function ChatInterface() {
         onImportChats={handleImportChats}
         onResetSettings={handleResetSettings}
         onClearAllData={handleClearAllData}
+        useMarkdown={useMarkdown}
+        onMarkdownToggle={() => setUseMarkdown(!useMarkdown)}
       />
 
       {/* Main Content */}
@@ -691,7 +736,6 @@ export default function ChatInterface() {
                     value={input}
                     onChange={(e) => {
                       setInput(e.target.value)
-                      // Auto-adjust height
                       if (textareaRef.current) {
                         textareaRef.current.style.height = '50px'
                         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
@@ -705,15 +749,24 @@ export default function ChatInterface() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setShowUrlInput(!showUrlInput)}
-                    className="h-8 w-8"
-                  >
-                    <Globe className="h-4 w-4" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setShowUrlInput(!showUrlInput)}
+                          className="h-8 w-8"
+                        >
+                          <Globe className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Add web URLs for context (RAG)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
                     type="submit"
                     size="icon"

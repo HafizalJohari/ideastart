@@ -41,8 +41,20 @@ interface FalResult {
   requestId: string
 }
 
-function formatResponse(content: string): string {
+function formatResponse(content: string, useMarkdown: boolean = true): string {
   if (!content) return ''
+  
+  // If plaintext is requested, just clean up the spacing and return
+  if (!useMarkdown) {
+    return content
+      .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
+      .replace(/```(\w+)?\n([\s\S]*?)```/g, '$2') // Remove code block markers
+      .replace(/`([^`]+)`/g, '$1') // Remove inline code markers
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markers
+      .replace(/\*([^*]+)\*/g, '$1') // Remove italic markers
+      .replace(/^>/gm, '') // Remove quote markers
+      .trim()
+  }
   
   // Clean up the text and normalize spacing
   let formattedContent = content
@@ -53,16 +65,13 @@ function formatResponse(content: string): string {
   formattedContent = formattedContent
     .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
       const language = lang ? lang.toUpperCase() : 'CODE'
-      return `
-╭──────────── ${language} ────────────╮
-${code.trim().split('\n').map((line: string) => '│ ' + line).join('\n')}
-╰${'─'.repeat(language.length + 24)}╯\n`
+      return `\`\`\`${lang || ''}\n${code.trim()}\n\`\`\``
     })
 
-  // Format inline code with special characters
-  formattedContent = formattedContent.replace(/`([^`]+)`/g, '『$1』')
+  // Format inline code
+  formattedContent = formattedContent.replace(/`([^`]+)`/g, '`$1`')
 
-  // Format platform sections with emojis and decorative borders
+  // Platform emojis mapping
   const platformEmojis: Record<string, string> = {
     'Twitter/X': '🐦',
     'LinkedIn': '💼',
@@ -78,48 +87,33 @@ ${code.trim().split('\n').map((line: string) => '│ ' + line).join('\n')}
     'Image Prompt': '🎨'
   }
 
-  // Format platform headers with decorative borders
-  formattedContent = formattedContent
-    .split('\n')
-    .map(line => {
-      if (line.startsWith('### ')) {
-        const headerText = line.replace('### ', '').trim()
-        const emoji = platformEmojis[headerText] || '📄'
-        const title = `${emoji}  ${headerText}`
-        const border = '═'.repeat(title.length + 2)
-        return `\n╔${border}╗\n║ ${title} ║\n╚${border}╝`
+  // Split content by platform sections and format each
+  const sections = formattedContent.split(/(?=### |\n(?=For \w+:))/g)
+  
+  return sections
+    .map(section => {
+      // Check if this is a platform section
+      const platformMatch = section.match(/^(?:### |\nFor )([^:\n]+)(?:[:|\n])([\s\S]+)/i)
+      
+      if (platformMatch) {
+        const [, platform, content] = platformMatch
+        const emoji = platformEmojis[platform.trim()] || '📄'
+        const cleanContent = content.trim()
+          .replace(/^- /gm, '• ') // Convert bullet points to dots
+          .replace(/^(\d+)\. /gm, '$1. ') // Keep numbered lists clean
+          .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markers
+          .replace(/\*([^*]+)\*/g, '$1') // Remove italic markers
+          .replace(/^>/gm, '│ ') // Format quotes with a simple line
+
+        return `\n${emoji} ${platform.trim()}\n${cleanContent}\n`
       }
-      return line
+      
+      // Return non-platform content as is
+      return section.trim()
     })
-    .join('\n')
-
-  // Format lists with special bullets
-  formattedContent = formattedContent
-    .replace(/^- (.+)$/gm, '◆ $1') // Convert bullet points to diamonds
-    .replace(/^(\d+)\. (.+)$/gm, '❑ $1. $2') // Add squares to numbered lists
-
-  // Format quotes with decorative borders
-  formattedContent = formattedContent
-    .replace(/^> (.+)$/gm, (_, text) => {
-      const lines = text.split('\n')
-      return lines.map((line: string) => `┃ ${line}`).join('\n')
-    })
-
-  // Format important points
-  formattedContent = formattedContent
-    .replace(/\*\*([^*]+)\*\*/g, '✧ $1 ✧') // Replace bold with special characters
-    .replace(/\*([^*]+)\*/g, '∼ $1 ∼') // Replace italic with special characters
-
-  // Add section separators
-  formattedContent = formattedContent
-    .replace(/\n\n(?=[A-Z])/g, '\n\n┄┄┄┄┄┄┄┄┄┄��┄┄┄┄┄┄┄┄┄\n\n') // Add separators between major sections
-
-  // Clean up final formatting
-  formattedContent = formattedContent
-    .replace(/\n{3,}/g, '\n\n') // Normalize spacing
+    .filter(Boolean)
+    .join('\n\n')
     .trim()
-
-  return formattedContent
 }
 
 const platformData = {
@@ -188,6 +182,7 @@ interface RequestBody {
   messages?: Message[]
   directImageGeneration?: boolean
   webUrls?: string[]
+  useMarkdown?: boolean
 }
 
 // Add debug logging for RAG process
@@ -206,7 +201,8 @@ export async function POST(req: NextRequest) {
       model = 'llama-3.3-70b',
       messages = [],
       directImageGeneration = false,
-      webUrls = []
+      webUrls = [],
+      useMarkdown = true
     } = await req.json()
 
     logRAGDebug('Request received with web URLs:', webUrls)
@@ -283,7 +279,7 @@ export async function POST(req: NextRequest) {
     // Build system message for AI
     const languageInstructions = language === 'en' 
       ? '' 
-      : `Please respond in ${language} language.`
+      : `You MUST respond in ${language} language. Translate ALL content to ${language}, including platform-specific content, hashtags, and any other text. Do not use any English in your response except for technical terms or brand names that should remain in English.`
 
     const styleInstructions = style && style !== 'none' && copywritingStyles[style as keyof typeof copywritingStyles]
       ? `Please structure your response using the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework: ${copywritingStyles[style as keyof typeof copywritingStyles].description}`
@@ -311,7 +307,7 @@ ${platformInstructions}
 ${ragContext ? `\nRelevant context from provided web sources:\n${ragContext}\n\nPlease use this context to inform your response while maintaining accuracy and citing sources when appropriate.` : ''}
 
 ${platforms.length === 1 && platforms[0] === 'conversation' 
-  ? 'Please provide a natural, conversational response in a clear, well-structured format. When sharing code, use proper code blocks with language specification.'
+  ? `Please provide a natural, conversational response in ${language === 'en' ? 'English' : language} language in a clear, well-structured format. When sharing code, use proper code blocks with language specification.`
   : `Please generate content optimized for the following platforms ONLY:
 ${platforms.map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
 
@@ -328,9 +324,12 @@ Important Instructions:
    - Use - for bullet points
    - Use 1. 2. 3. for numbered lists
 5. ONLY generate content for the specifically requested platforms listed above.
-6. Do not include any other platforms in your response.`}
+6. Do not include any other platforms in your response.
+7. Ensure ALL content is translated to ${language === 'en' ? 'English' : language} language, including hashtags and platform-specific content.`}
 
-Please structure your response ${platforms.length === 1 && platforms[0] === 'conversation' ? 'as a natural conversation' : 'clearly for each requested platform'}${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''}.`
+Please structure your response ${platforms.length === 1 && platforms[0] === 'conversation' ? 'as a natural conversation' : 'clearly for each requested platform'}${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''}.
+
+Remember: The ENTIRE response must be in ${language === 'en' ? 'English' : language} language.`
 
     // Get AI response based on model
     let response
@@ -382,7 +381,7 @@ Please structure your response ${platforms.length === 1 && platforms[0] === 'con
     }
 
     // Format the response to ensure plain text
-    const formattedResponse = formatResponse(response.choices[0].message.content)
+    const formattedResponse = formatResponse(response.choices[0].message.content, useMarkdown)
 
     if (!formattedResponse) {
       throw new Error('Empty response from AI')

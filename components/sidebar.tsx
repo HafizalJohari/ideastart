@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight, Volume2, VolumeX, Download, Upload, RefreshCw, Trash2, Bug } from 'lucide-react'
+import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight, Volume2, VolumeX, Download, Upload, RefreshCw, Trash2, Bug, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { LanguageSelector, type Language } from '@/components/language-selector'
@@ -41,6 +41,8 @@ interface SidebarProps {
   showThemeToggle?: boolean
   soundEnabled: boolean
   onSoundToggle: () => void
+  useMarkdown: boolean
+  onMarkdownToggle: () => void
   debugMode?: boolean
   onDebugModeToggle?: () => void
   onExportChats?: () => void
@@ -73,6 +75,8 @@ export function Sidebar({
   showThemeToggle = false,
   soundEnabled,
   onSoundToggle,
+  useMarkdown,
+  onMarkdownToggle,
   debugMode = false,
   onDebugModeToggle,
   onExportChats,
@@ -183,6 +187,22 @@ export function Sidebar({
                     checked={soundEnabled}
                     onCheckedChange={onSoundToggle}
                     aria-label="Toggle sound notifications"
+                  />
+                </div>
+
+                {/* Markdown Formatting */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <div className="flex flex-col">
+                      <span className="text-sm">Markdown Formatting</span>
+                      <span className="text-xs text-muted-foreground">Enable rich text formatting</span>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={useMarkdown}
+                    onCheckedChange={onMarkdownToggle}
+                    aria-label="Toggle markdown formatting"
                   />
                 </div>
 
