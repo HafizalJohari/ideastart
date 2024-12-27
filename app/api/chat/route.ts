@@ -4,7 +4,7 @@ import { type WritingTone, writingTones } from '@/components/tone-selector'
 import { type Language } from '@/components/language-selector'
 import { type PlatformType } from '@/components/platform-selector'
 import { type ModelType } from '@/components/model-selector'
-import { type Message } from '@/lib/types'
+import { type Message, type UserPersona } from '@/lib/types'
 import { OpenAIClient } from '@/lib/openai'
 import { AnthropicClient } from '@/lib/anthropic'
 import { CerebrasClient } from '@/lib/cerebras'
@@ -190,6 +190,7 @@ interface RequestBody {
   directImageGeneration?: boolean
   webUrls?: string[]
   useMarkdown?: boolean
+  persona?: UserPersona
 }
 
 // Add debug logging for RAG process
@@ -205,11 +206,12 @@ export async function POST(req: NextRequest) {
       language = 'en',
       style = 'none',
       tone = 'none',
-      model = 'llama-3.3-70b',
+      model = 'gpt-4o',
       messages = [],
       directImageGeneration = false,
       webUrls = [],
-      useMarkdown = true
+      useMarkdown = true,
+      persona = null
     } = await req.json()
 
     logRAGDebug('Request received with web URLs:', webUrls)
@@ -303,6 +305,16 @@ export async function POST(req: NextRequest) {
 
     const systemMessage = `You are an expert in creating engaging content${platforms.length === 1 && platforms[0] === 'conversation' ? ' for natural conversations' : ' for multiple platforms'}.
 
+${persona ? `You are speaking with a ${persona.role}${persona.industry ? ` in the ${persona.industry} industry` : ''}.
+
+Key Context About the User:
+${persona.background ? `Background: ${persona.background}` : ''}
+${persona.goals?.length ? `Goals: ${persona.goals.join(', ')}` : ''}
+${persona.interests?.length ? `Interests: ${persona.interests.join(', ')}` : ''}
+${persona.tone ? `Preferred Communication Style: ${persona.tone}` : ''}
+
+Please tailor your responses to be highly relevant to their professional context, goals, and interests. Use industry-specific terminology when appropriate.` : ''}
+
 ${languageInstructions}
 
 ${styleInstructions}
@@ -384,7 +396,7 @@ Remember: The ENTIRE response must be in ${language === 'en' ? 'English' : langu
       response = await xai.chat({
         messages: [systemMsg, userMsg]
       })
-    } else if (model.startsWith('command-')) {
+    } else if (model === 'command-') {
       const cohere = new CohereClient()
       response = await cohere.chat({
         messages: [systemMsg, userMsg]
