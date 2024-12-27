@@ -25,20 +25,15 @@ export function ChatHistory({
   onClearSearch,
   translations
 }: ChatHistoryProps) {
-  const filteredSessions = sessions
+  const filteredSessions = (sessions || [])
     .filter(session => {
       if (!searchQuery) return true
       return (
         session.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (session.lastMessage?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+        session.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     })
-    .sort((a, b) => {
-      // Sort by lastMessageTimestamp or updatedAt if lastMessageTimestamp is not available
-      const aTime = a.lastMessageTimestamp || a.updatedAt
-      const bTime = b.lastMessageTimestamp || b.updatedAt
-      return new Date(bTime).getTime() - new Date(aTime).getTime()
-    })
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 
   return (
     <div className="flex-1 overflow-y-auto">

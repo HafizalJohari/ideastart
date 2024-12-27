@@ -5,7 +5,7 @@ import type { Language } from '@/components/language-selector'
 import type { CopywritingStyle } from '@/components/style-selector'
 import type { WritingTone } from '@/components/tone-selector'
 import type { PlatformType } from '@/components/platform-selector'
-import type { Message, Session } from '@/lib/types'
+import type { Message, Session, UserPersona } from '@/lib/types'
 import { chatMemory } from '@/lib/chatMemory'
 
 interface ChatState {
@@ -24,6 +24,10 @@ interface ChatState {
   isPinned: boolean
   isRightSidebarOpen: boolean
   soundEnabled: boolean
+  loading: boolean
+  error: string | undefined
+  personas: UserPersona[]
+  activePersonaId: string | null
 
   // Actions
   setSessions: (sessions: Session[] | ((prev: Session[]) => Session[])) => void
@@ -45,45 +49,57 @@ interface ChatState {
   loadSessionMessages: (sessionId: string) => void
   createNewSession: () => void
   deleteSession: (id: string) => void
+
+  // Persona management
+  setPersonas: (personas: UserPersona[]) => void
+  setActivePersonaId: (id: string | null) => void
+  addPersona: (persona: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>) => void
+  updatePersona: (id: string, updates: Partial<UserPersona>) => void
+  deletePersona: (id: string) => void
 }
 
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
       // Initial state
-      sessions: [],
+      sessions: [] as Session[],
       currentSessionId: '',
-      messages: [],
+      messages: [] as Message[],
       selectedModel: 'llama-3.3-70b',
       selectedLanguage: 'en',
       selectedStyle: 'none',
       selectedTone: 'none',
-      selectedPlatforms: ['conversation'],
+      selectedPlatforms: ['conversation'] as PlatformType[],
       searchQuery: '',
       isPinned: false,
       isRightSidebarOpen: false,
       soundEnabled: true,
+      loading: false,
+      error: undefined,
+      personas: [] as UserPersona[],
+      activePersonaId: null,
 
       // Basic setters
-      setSessions: (sessions) => set((state) => ({
-        sessions: typeof sessions === 'function' ? sessions(state.sessions) : sessions
-      })),
-      setCurrentSessionId: (id) => set({ currentSessionId: id }),
-      setMessages: (messages) => set({ messages }),
-      setSelectedModel: (model) => set({ selectedModel: model }),
-      setSelectedLanguage: (language) => set({ selectedLanguage: language }),
-      setSelectedStyle: (style) => set({ selectedStyle: style }),
-      setSelectedTone: (tone) => set({ selectedTone: tone }),
-      setSelectedPlatforms: (platforms) => set({ selectedPlatforms: platforms }),
-      setSearchQuery: (query) => set({ searchQuery: query }),
-      setIsPinned: (isPinned) => set({ isPinned }),
-      setIsRightSidebarOpen: (isOpen) => set({ isRightSidebarOpen: isOpen }),
-      setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
+      setSessions: (sessions: Session[] | ((prev: Session[]) => Session[])) => 
+        set((state) => ({
+          sessions: typeof sessions === 'function' ? sessions(state.sessions) : sessions
+        })),
+      setCurrentSessionId: (id: string) => set({ currentSessionId: id }),
+      setMessages: (messages: Message[]) => set({ messages }),
+      setSelectedModel: (model: ModelType) => set({ selectedModel: model }),
+      setSelectedLanguage: (language: Language) => set({ selectedLanguage: language }),
+      setSelectedStyle: (style: CopywritingStyle) => set({ selectedStyle: style }),
+      setSelectedTone: (tone: WritingTone) => set({ selectedTone: tone }),
+      setSelectedPlatforms: (platforms: PlatformType[]) => set({ selectedPlatforms: platforms }),
+      setSearchQuery: (query: string) => set({ searchQuery: query }),
+      setIsPinned: (isPinned: boolean) => set({ isPinned }),
+      setIsRightSidebarOpen: (isOpen: boolean) => set({ isRightSidebarOpen: isOpen }),
+      setSoundEnabled: (enabled: boolean) => set({ soundEnabled: enabled }),
 
       // Chat memory actions
-      addMessage: (message) => {
+      addMessage: (message: Message) => {
         const { currentSessionId, messages, sessions } = get()
-        const newMessages = [...messages, message]
+        const newMessages = [...(messages || []), message]
         
         // Update messages in state and memory
         set({ messages: newMessages })
@@ -91,7 +107,7 @@ export const useChatStore = create<ChatState>()(
 
         // Update session with last message info
         if (currentSessionId) {
-          const updatedSessions = sessions.map(session => {
+          const updatedSessions = (sessions || []).map(session => {
             if (session.id === currentSessionId) {
               return {
                 ...session,
@@ -112,29 +128,30 @@ export const useChatStore = create<ChatState>()(
         chatMemory.clear(currentSessionId)
       },
 
-      loadSessionMessages: (sessionId) => {
+      loadSessionMessages: (sessionId: string) => {
         const messages = chatMemory.load(sessionId)
-        set({ messages, currentSessionId: sessionId })
+        set({ messages: messages || [], currentSessionId: sessionId })
       },
 
       createNewSession: () => {
         const { sessions } = get()
         const newSession: Session = {
           id: crypto.randomUUID(),
-          name: `Chat ${sessions.length + 1}`,
+          name: `Chat ${(sessions || []).length + 1}`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
         set({
-          sessions: [newSession, ...sessions],
+          sessions: [newSession, ...(sessions || [])],
           currentSessionId: newSession.id,
           messages: []
         })
       },
 
-      deleteSession: (id) => {
+      deleteSession: (id: string) => {
         const { sessions, currentSessionId } = get()
-        const newSessions = sessions.filter(s => s.id !== id)
+        const currentSessions = sessions || []
+        const newSessions = currentSessions.filter(s => s.id !== id)
         chatMemory.clear(id)
         
         // If deleting current session, switch to the first available session or create a new one
@@ -144,7 +161,7 @@ export const useChatStore = create<ChatState>()(
             set({
               sessions: newSessions,
               currentSessionId: newSessions[0].id,
-              messages
+              messages: messages || []
             })
           } else {
             const newSession: Session = {
@@ -162,19 +179,56 @@ export const useChatStore = create<ChatState>()(
         } else {
           set({ sessions: newSessions })
         }
+      },
+
+      // Persona management actions
+      setPersonas: (personas: UserPersona[]) => set({ personas }),
+      setActivePersonaId: (id: string | null) => set({ activePersonaId: id }),
+      
+      addPersona: (personaData) => {
+        const newPersona: UserPersona = {
+          ...personaData,
+          id: crypto.randomUUID(),
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        set((state) => ({
+          personas: [...(state.personas || []), newPersona],
+          activePersonaId: newPersona.id
+        }))
+      },
+
+      updatePersona: (id: string, updates: Partial<UserPersona>) => {
+        set((state) => ({
+          personas: (state.personas || []).map((persona) =>
+            persona.id === id
+              ? { ...persona, ...updates, updatedAt: new Date().toISOString() }
+              : persona
+          )
+        }))
+      },
+
+      deletePersona: (id: string) => {
+        set((state) => ({
+          personas: (state.personas || []).filter((persona) => persona.id !== id),
+          activePersonaId: state.activePersonaId === id ? null : state.activePersonaId
+        }))
       }
     }),
     {
       name: 'chat-store',
       partialize: (state) => ({
-        sessions: state.sessions,
+        sessions: state.sessions || [],
         currentSessionId: state.currentSessionId,
         selectedModel: state.selectedModel,
         selectedLanguage: state.selectedLanguage,
         selectedStyle: state.selectedStyle,
         selectedTone: state.selectedTone,
         selectedPlatforms: state.selectedPlatforms,
-        soundEnabled: state.soundEnabled
+        soundEnabled: state.soundEnabled,
+        personas: state.personas || [],
+        activePersonaId: state.activePersonaId
       })
     }
   )

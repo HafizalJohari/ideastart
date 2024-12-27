@@ -18,7 +18,7 @@ import { CopyButton } from '@/components/copy-button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ModelSelector, type ModelType, models } from '@/components/model-selector'
 import { Sidebar } from '@/components/sidebar'
-import type { Message as MessageType, Session, ChatState, ChatMemory } from '@/lib/types'
+import type { Message as MessageType, Session, ChatState, ChatMemory, UserPersona } from '@/lib/types'
 import { translations } from '@/lib/translations'
 import { ChatHistory } from '@/components/chat-history'
 import { useChatStore } from '@/lib/store'
@@ -54,7 +54,7 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
 
     if (!message.content) return []
 
-    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
+    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|��|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
     return sections.map(section => {
       const match = section.match(/^(🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)\s*([^:\n]+)(?:[:|\n])([\s\S]+)/)
       if (match) {
@@ -168,6 +168,8 @@ export default function ChatInterface() {
     isPinned,
     isRightSidebarOpen,
     soundEnabled,
+    personas,
+    activePersonaId,
     setSessions,
     setCurrentSessionId,
     setMessages,
@@ -183,7 +185,11 @@ export default function ChatInterface() {
     createNewSession,
     deleteSession,
     addMessage,
-    loadSessionMessages
+    loadSessionMessages,
+    addPersona,
+    updatePersona,
+    deletePersona,
+    setActivePersonaId
   } = useChatStore()
 
   // Function to play notification sound
@@ -271,6 +277,9 @@ export default function ChatInterface() {
       }
       addMessage(userMessage)
 
+      // Get active persona
+      const activePersona = personas.find(p => p.id === activePersonaId)
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -286,7 +295,8 @@ export default function ChatInterface() {
           messages: messages.slice(-10),
           directImageGeneration: selectedPlatforms.length === 1 && selectedPlatforms[0] === 'imagePrompt',
           webUrls: webUrls,
-          useMarkdown
+          useMarkdown,
+          persona: activePersona // Add persona to the request
         }),
       })
 
@@ -395,8 +405,6 @@ export default function ChatInterface() {
   }
 
   const handleDeleteSession = (sessionId: string) => {
-    const newSessions = sessions.filter(s => s.id !== sessionId)
-    setSessions(newSessions)
     deleteSession(sessionId)
   }
 
@@ -407,7 +415,7 @@ export default function ChatInterface() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-    setSessions([newSession, ...sessions])
+    setSessions(prev => [newSession, ...prev])
     setCurrentSessionId(newSession.id)
   }
 
@@ -594,6 +602,10 @@ export default function ChatInterface() {
     </div>
   )
 
+  const handlePersonaEdit = (persona: UserPersona) => {
+    updatePersona(persona.id, persona)
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Audio element for notification sound */}
@@ -632,6 +644,12 @@ export default function ChatInterface() {
         onClearAllData={handleClearAllData}
         useMarkdown={useMarkdown}
         onMarkdownToggle={() => setUseMarkdown(!useMarkdown)}
+        personas={personas}
+        activePersonaId={activePersonaId}
+        onPersonaChange={setActivePersonaId}
+        onPersonaCreate={addPersona}
+        onPersonaEdit={handlePersonaEdit}
+        onPersonaDelete={deletePersona}
       />
 
       {/* Main Content */}

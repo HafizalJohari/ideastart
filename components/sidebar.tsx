@@ -13,9 +13,10 @@ import { PlatformSelector, type PlatformType } from '@/components/platform-selec
 import { ModelSelector, type ModelType } from '@/components/model-selector'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import type { Session, Translations } from "@/lib/types"
+import type { Session, Translations, UserPersona } from "@/lib/types"
 import { translations } from "@/lib/translations"
 import { ThemeToggle } from '@/components/theme-toggle'
+import { PersonaSelector } from '@/components/persona-selector'
 
 interface SidebarProps {
   isSidebarOpen: boolean
@@ -49,6 +50,12 @@ interface SidebarProps {
   onImportChats?: () => void
   onResetSettings?: () => void
   onClearAllData?: () => void
+  personas: UserPersona[]
+  activePersonaId: string | null
+  onPersonaChange: (personaId: string) => void
+  onPersonaCreate: (persona: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>) => void
+  onPersonaEdit?: (persona: UserPersona) => void
+  onPersonaDelete?: (personaId: string) => void
 }
 
 export function Sidebar({
@@ -83,6 +90,12 @@ export function Sidebar({
   onImportChats,
   onResetSettings,
   onClearAllData,
+  personas,
+  activePersonaId,
+  onPersonaChange,
+  onPersonaCreate,
+  onPersonaEdit,
+  onPersonaDelete
 }: SidebarProps) {
   React.useEffect(() => {
     const header = document.getElementById('sidebar-header')
@@ -123,6 +136,19 @@ export function Sidebar({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-6">
+            {/* Persona Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Active Persona</label>
+              <PersonaSelector
+                personas={personas}
+                activePersonaId={activePersonaId}
+                onPersonaChange={onPersonaChange}
+                onPersonaCreate={onPersonaCreate}
+                onPersonaEdit={onPersonaEdit}
+                onPersonaDelete={onPersonaDelete}
+              />
+            </div>
+
             {/* Model Selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Model</label>

@@ -32,11 +32,27 @@ export interface ChatMemory {
   summary?: string
 }
 
+export interface UserPersona {
+  id: string
+  name: string
+  role: string
+  industry?: string
+  interests?: string[]
+  tone?: string
+  background?: string
+  goals?: string[]
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ChatState {
   messages: Message[]
   context?: string
   loading: boolean
   error?: string
+  personas: UserPersona[]
+  activePersonaId: string | null
 }
 
 export interface Translations {

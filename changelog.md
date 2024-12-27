@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+
+
+27-12-2024
+- add persona feature
+I've added the persona feature with the following components:
+Types and Interfaces:
+Added UserPersona interface with fields for name, role, industry, interests, etc.
+Updated store state to include personas and active persona
+PersonaSelector Component:
+Dropdown to select active persona
+Create new persona dialog with fields for:
+Name
+Role
+Industry
+Background & Experience
+Goals
+Interests
+Preferred Communication Tone
+Store Updates:
+Added persona management actions:
+setPersonas
+setActivePersonaId
+addPersona
+updatePersona
+deletePersona
+Sidebar Integration:
+Added PersonaSelector to the sidebar
+Placed at the top for easy access
+Full width dropdown with clear labeling
+Chat Integration:
+Added active persona to chat requests
+Persona context is sent with each message
+To use the persona feature:
+Click "Select persona..." in the sidebar
+Create a new persona with the "+" button
+Fill in the persona details
+Select the persona to make it active
+Chat messages will now include the persona context
+The persona feature will help the AI better understand the user's context and provide more relevant responses based on their role, industry, and preferences.
+
 ## [1.0.0] - 2024-01-01
 
 ### Added
