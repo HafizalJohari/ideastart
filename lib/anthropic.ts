@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+type Role = 'user' | 'assistant'
+
 export class AnthropicClient {
   private client: Anthropic
 
@@ -11,13 +13,17 @@ export class AnthropicClient {
 
   async chat({ messages }: { messages: { role: string; content: string }[] }) {
     try {
+      // Format messages for Claude
+      const formattedMessages = messages.map(msg => ({
+        role: (msg.role === 'system' ? 'assistant' : msg.role === 'user' ? 'user' : 'assistant') as Role,
+        content: msg.content.replace(/<<HUMAN_CONVERSATION_START>>/g, '')
+      }))
+
       const response = await this.client.messages.create({
         model: 'claude-3-haiku-20240307',
         max_tokens: 1024,
-        messages: messages.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        }))
+        messages: formattedMessages,
+        temperature: 0.7
       })
 
       // Extract text content from the response
@@ -26,11 +32,14 @@ export class AnthropicClient {
         throw new Error('No text content in response')
       }
 
+      // Clean up any remaining markers in the response
+      const cleanedContent = content.text.replace(/<<HUMAN_CONVERSATION_START>>/g, '')
+
       return {
         choices: [
           {
             message: {
-              content: content.text
+              content: cleanedContent
             }
           }
         ]

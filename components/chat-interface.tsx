@@ -28,6 +28,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
+
+interface CodeComponentProps {
+  node?: any
+  inline?: boolean
+  className?: string
+  children: React.ReactNode
+}
 
 interface ExtendedMessage extends Omit<MessageType, 'id' | 'timestamp'> {
   id: string
@@ -68,6 +80,29 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
 
   const sections = splitContent()
 
+  const components: Components = {
+    code({ className, children }) {
+      const match = /language-(\w+)/.exec(className || '')
+      const language = match ? match[1] : ''
+      const code = String(children).replace(/\n$/, '')
+
+      return match ? (
+        <div className="relative">
+          <div className="absolute right-2 top-2 text-xs text-muted-foreground">
+            {language.toUpperCase()}
+          </div>
+          <pre className="!mt-0 !mb-0">
+            <code className={className}>
+              {code}
+            </code>
+          </pre>
+        </div>
+      ) : (
+        <code className={className}>{children}</code>
+      )
+    }
+  }
+
   return (
     <div className="space-y-4 py-4">
       {message.role === 'user' ? (
@@ -92,7 +127,14 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
                       {section.emoji} {section.platform}
                     </div>
                   )}
-                  <p className="text-sm whitespace-pre-wrap">{section.content}</p>
+                  <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={components}
+                    >
+                      {section.content}
+                    </ReactMarkdown>
+                  </div>
                 </div>
                 <CopyButton value={section.content} />
               </div>
@@ -187,8 +229,14 @@ export default function ChatInterface() {
     addPersona,
     updatePersona,
     deletePersona,
-    setActivePersonaId
+    setActivePersonaId,
+    migrateLanguageCode
   } = useChatStore()
+
+  // Run language code migration on mount
+  useEffect(() => {
+    migrateLanguageCode()
+  }, [migrateLanguageCode])
 
   // Function to play notification sound
   const playNotificationSound = () => {

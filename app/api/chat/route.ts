@@ -4,6 +4,7 @@ import { type WritingTone, writingTones } from '@/components/tone-selector'
 import { type Language } from '@/components/language-selector'
 import { type PlatformType } from '@/components/platform-selector'
 import { type ModelType } from '@/components/model-selector'
+import { type Message } from '@/lib/types'
 import { OpenAIClient } from '@/lib/openai'
 import { AnthropicClient } from '@/lib/anthropic'
 import { CerebrasClient } from '@/lib/cerebras'
@@ -11,11 +12,7 @@ import { generateImage, type GenerateImageResponse } from '@/lib/falai'
 import { GeminiClient } from '@/lib/gemini'
 import { XAIClient } from '@/lib/xai'
 import { generateRAGContext } from '@/lib/rag'
-
-interface Message {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
+import { CohereClient } from '@/lib/cohere'
 
 interface FalImage {
   url: string
@@ -71,6 +68,21 @@ function formatResponse(content: string, useMarkdown: boolean = true): string {
   // Format inline code
   formattedContent = formattedContent.replace(/`([^`]+)`/g, '`$1`')
 
+  // Format bold text
+  formattedContent = formattedContent.replace(/\*\*([^*]+)\*\*/g, '**$1**')
+
+  // Format italic text
+  formattedContent = formattedContent.replace(/\*([^*]+)\*/g, '*$1*')
+
+  // Format quotes
+  formattedContent = formattedContent.replace(/^>/gm, '> ')
+
+  // Format bullet points
+  formattedContent = formattedContent.replace(/^- /gm, '• ')
+
+  // Format numbered lists
+  formattedContent = formattedContent.replace(/^(\d+)\. /gm, '$1. ')
+
   // Platform emojis mapping
   const platformEmojis: Record<string, string> = {
     'Twitter/X': '🐦',
@@ -99,11 +111,6 @@ function formatResponse(content: string, useMarkdown: boolean = true): string {
         const [, platform, content] = platformMatch
         const emoji = platformEmojis[platform.trim()] || '📄'
         const cleanContent = content.trim()
-          .replace(/^- /gm, '• ') // Convert bullet points to dots
-          .replace(/^(\d+)\. /gm, '$1. ') // Keep numbered lists clean
-          .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markers
-          .replace(/\*([^*]+)\*/g, '$1') // Remove italic markers
-          .replace(/^>/gm, '│ ') // Format quotes with a simple line
 
         return `\n${emoji} ${platform.trim()}\n${cleanContent}\n`
       }
@@ -307,7 +314,16 @@ ${platformInstructions}
 ${ragContext ? `\nRelevant context from provided web sources:\n${ragContext}\n\nPlease use this context to inform your response while maintaining accuracy and citing sources when appropriate.` : ''}
 
 ${platforms.length === 1 && platforms[0] === 'conversation' 
-  ? `Please provide a natural, conversational response in ${language === 'en' ? 'English' : language} language in a clear, well-structured format. When sharing code, use proper code blocks with language specification.`
+  ? `Please provide a natural, conversational response in ${language === 'en' ? 'English' : language} language in a clear, well-structured format. When sharing code, use proper code blocks with language specification.
+
+Important Formatting Instructions:
+1. Use triple backticks with language specification for code blocks: \`\`\`language
+2. Use single backticks for inline code: \`code\`
+3. Use ** for bold text
+4. Use * for italic text
+5. Use > for quotes or notable content
+6. Use - for bullet points
+7. Use 1. 2. 3. for numbered lists`
   : `Please generate content optimized for the following platforms ONLY:
 ${platforms.map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.name || platform).join('\n')}
 
@@ -318,8 +334,8 @@ Important Instructions:
 4. Use clear formatting:
    - For code blocks, use triple backticks with language specification: \`\`\`language
    - For inline code, use single backticks: \`code\`
-   - Use ** for emphasis
-   - Use * for subtle emphasis
+   - Use ** for bold text
+   - Use * for italic text
    - Use > for quotes or notable content
    - Use - for bullet points
    - Use 1. 2. 3. for numbered lists
@@ -333,46 +349,50 @@ Remember: The ENTIRE response must be in ${language === 'en' ? 'English' : langu
 
     // Get AI response based on model
     let response
+    const timestamp = new Date().toISOString()
+    const systemMsg: Message = { 
+      role: 'system', 
+      content: systemMessage,
+      id: crypto.randomUUID(),
+      timestamp
+    }
+    const userMsg: Message = { 
+      role: 'user', 
+      content: message,
+      id: crypto.randomUUID(),
+      timestamp
+    }
+
     if (model.startsWith('gpt-')) {
       const openai = new OpenAIClient()
       response = await openai.chat({
-        messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: message }
-        ],
+        messages: [systemMsg, userMsg],
         model
       })
     } else if (model === 'claude-3-5-haiku-20241022') {
       const anthropic = new AnthropicClient()
       response = await anthropic.chat({
-        messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: message }
-        ]
+        messages: [systemMsg, userMsg]
       })
     } else if (model.startsWith('gemini-')) {
       const gemini = new GeminiClient()
       response = await gemini.chat({
-        messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: message }
-        ]
+        messages: [systemMsg, userMsg]
       })
     } else if (model === 'grok-2-1212') {
       const xai = new XAIClient()
       response = await xai.chat({
-        messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: message }
-        ]
+        messages: [systemMsg, userMsg]
+      })
+    } else if (model.startsWith('command-')) {
+      const cohere = new CohereClient()
+      response = await cohere.chat({
+        messages: [systemMsg, userMsg]
       })
     } else {
       const cerebras = new CerebrasClient()
       response = await cerebras.chat({
-        messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: message }
-        ]
+        messages: [systemMsg, userMsg]
       })
     }
 

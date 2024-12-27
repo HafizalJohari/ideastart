@@ -44,7 +44,7 @@ export const translations: Record<string, Translations> = {
     whatHelp: 'What can I help you with?',
     typeMessage: 'Type a message...'
   },
-  my: {
+  ms: {
     chatHistory: 'Sejarah Perbualan',
     searchChats: 'Cari perbualan...',
     selectStyle: 'Pilih gaya',

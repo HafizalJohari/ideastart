@@ -20,7 +20,7 @@ const languages = {
     name: 'English',
     flag: '🇬🇧'
   },
-  my: {
+  ms: {
     name: 'Bahasa Melayu',
     flag: '🇲🇾'
   }

@@ -56,6 +56,9 @@ interface ChatState {
   addPersona: (persona: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>) => void
   updatePersona: (id: string, updates: Partial<UserPersona>) => void
   deletePersona: (id: string) => void
+
+  // Migration function for language code
+  migrateLanguageCode: () => void
 }
 
 export const useChatStore = create<ChatState>()(
@@ -78,6 +81,19 @@ export const useChatStore = create<ChatState>()(
       error: undefined,
       personas: [] as UserPersona[],
       activePersonaId: null,
+
+      // Migration function for language code
+      migrateLanguageCode: () => {
+        const { sessions } = get()
+        const updatedSessions = sessions.map(session => ({
+          ...session,
+          language: session.language === 'my' ? 'ms' : session.language
+        }))
+        set({ 
+          sessions: updatedSessions,
+          selectedLanguage: get().selectedLanguage === 'my' ? 'ms' : get().selectedLanguage
+        })
+      },
 
       // Basic setters
       setSessions: (sessions: Session[] | ((prev: Session[]) => Session[])) => 

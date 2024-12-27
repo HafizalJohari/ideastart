@@ -18,23 +18,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-export type ModelType = 
-  | 'gpt-4o'
-  | 'gpt-4o-mini'
-  | 'claude-3-5-haiku-20241022'
-  | 'llama-3.3-70b'
-  | 'gemini-2.0-flash'
-  | 'grok-2-1212'
-
 interface ModelInfo {
-  name: string;
-  description: string;
-  provider: string;
-  icon: React.ReactNode;
-  isNew?: boolean;
+  name: string
+  description: string
+  provider: string
+  icon: React.ReactNode
+  isNew?: boolean
 }
 
-export const models: Record<ModelType, ModelInfo> = {
+export const models: Record<string, ModelInfo> = {
   'gpt-4o': {
     name: 'GPT-4o',
     description: 'Most capable OpenAI model, best for complex tasks',
@@ -47,17 +39,17 @@ export const models: Record<ModelType, ModelInfo> = {
     provider: 'OpenAI',
     icon: <Sparkles className="h-4 w-4 text-green-500" />
   },
-  'claude-3-5-haiku-20241022': {
-    name: 'Claude 3.5 Haiku',
-    description: 'Latest Anthropic model, excellent at reasoning and analysis',
-    provider: 'Anthropic',
-    icon: <Sparkles className="h-4 w-4 text-purple-500" />
-  },
   'llama-3.3-70b': {
     name: 'Llama 3.3 70B',
-    description: 'Open source large language model by Meta',
+    description: 'Latest Llama model with strong capabilities',
     provider: 'Cerebras',
     icon: <Sparkles className="h-4 w-4 text-blue-500" />
+  },
+  'claude-3-5-haiku-20241022': {
+    name: 'Claude 3.5 Haiku',
+    description: 'Fast and efficient model from Anthropic',
+    provider: 'Anthropic',
+    icon: <Sparkles className="h-4 w-4 text-purple-500" />
   },
   'gemini-2.0-flash': {
     name: 'Gemini 2.0 Flash',
@@ -67,12 +59,20 @@ export const models: Record<ModelType, ModelInfo> = {
   },
   'grok-2-1212': {
     name: 'Grok 2',
-    description: 'Latest X.AI model with enhanced reasoning and real-time knowledge',
+    description: 'Latest model from xAI with real-time knowledge',
     provider: 'X.AI',
     icon: <Bot className="h-4 w-4 text-slate-500" />,
     isNew: true
+  },
+  'command-r-plus-08-2024': {
+    name: 'Cohere Command R+',
+    description: 'Advanced model from Cohere with strong capabilities',
+    provider: 'Cohere',
+    icon: <Sparkles className="h-4 w-4 text-yellow-500" />
   }
 } as const
+
+export type ModelType = keyof typeof models
 
 interface ModelSelectorProps {
   selectedModel: ModelType
