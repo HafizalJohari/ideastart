@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus, Settings } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, Settings, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -51,6 +51,8 @@ export function PersonaSelector({
 }: PersonaSelectorProps) {
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
+  const [showEditDialog, setShowEditDialog] = React.useState(false)
+  const [editingPersona, setEditingPersona] = React.useState<UserPersona | null>(null)
   const [newPersona, setNewPersona] = React.useState({
     name: '',
     role: '',
@@ -83,6 +85,33 @@ export function PersonaSelector({
       interests: '',
       tone: ''
     })
+  }
+
+  const handleEditPersona = () => {
+    if (editingPersona) {
+      onPersonaEdit({
+        ...editingPersona,
+        goals: typeof editingPersona.goals === 'string' 
+          ? editingPersona.goals.split(',').map(g => g.trim())
+          : editingPersona.goals,
+        interests: typeof editingPersona.interests === 'string'
+          ? editingPersona.interests.split(',').map(i => i.trim())
+          : editingPersona.interests,
+        updatedAt: new Date().toISOString()
+      })
+      setShowEditDialog(false)
+      setEditingPersona(null)
+    }
+  }
+
+  const startEditing = (persona: UserPersona) => {
+    setEditingPersona({
+      ...persona,
+      goals: Array.isArray(persona.goals) ? persona.goals.join(', ') : persona.goals,
+      interests: Array.isArray(persona.interests) ? persona.interests.join(', ') : persona.interests
+    })
+    setShowEditDialog(true)
+    setOpen(false)
   }
 
   return (
@@ -119,16 +148,43 @@ export function PersonaSelector({
                       onPersonaChange(persona.id)
                       setOpen(false)
                     }}
+                    className="flex items-center justify-between"
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        activePersonaId === persona.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
                     <div className="flex flex-col">
                       <span>{persona.name}</span>
                       <span className="text-sm text-muted-foreground">{persona.role}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEditing(persona)
+                        }}
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span className="sr-only">Edit {persona.name}</span>
+                      </Button>
+                      {onPersonaDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onPersonaDelete(persona.id)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete {persona.name}</span>
+                        </Button>
+                      )}
+                      <Check
+                        className={cn(
+                          "ml-2 h-4 w-4",
+                          activePersonaId === persona.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
                     </div>
                   </CommandItem>
                 ))}
@@ -229,6 +285,85 @@ export function PersonaSelector({
             </Button>
             <Button onClick={handleCreatePersona} disabled={!newPersona.name || !newPersona.role}>
               Create Persona
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Persona</DialogTitle>
+            <DialogDescription>
+              Update your persona's details.
+            </DialogDescription>
+          </DialogHeader>
+          {editingPersona && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editingPersona.name}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, name: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-role">Role</Label>
+                <Input
+                  id="edit-role"
+                  value={editingPersona.role}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, role: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-industry">Industry</Label>
+                <Input
+                  id="edit-industry"
+                  value={editingPersona.industry}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, industry: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-background">Background & Experience</Label>
+                <Textarea
+                  id="edit-background"
+                  value={editingPersona.background}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, background: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-goals">Goals (comma-separated)</Label>
+                <Input
+                  id="edit-goals"
+                  value={editingPersona.goals}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, goals: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-interests">Interests (comma-separated)</Label>
+                <Input
+                  id="edit-interests"
+                  value={editingPersona.interests}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, interests: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-tone">Preferred Communication Tone</Label>
+                <Input
+                  id="edit-tone"
+                  value={editingPersona.tone}
+                  onChange={(e) => setEditingPersona({ ...editingPersona, tone: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditPersona} disabled={!editingPersona?.name || !editingPersona?.role}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
