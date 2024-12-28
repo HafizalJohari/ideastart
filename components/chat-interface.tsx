@@ -18,7 +18,7 @@ import { CopyButton } from '@/components/copy-button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ModelSelector, type ModelType, models } from '@/components/model-selector'
 import { Sidebar } from '@/components/sidebar'
-import type { Message as MessageType, Session, ChatState, ChatMemory, UserPersona } from '@/lib/types'
+import type { Message as MessageType, Session, ChatState, ChatMemory, UserPersona, Project } from '@/lib/types'
 import { translations } from '@/lib/translations'
 import { ChatHistory } from '@/components/chat-history'
 import { useChatStore } from '@/lib/store'
@@ -233,6 +233,8 @@ export default function ChatInterface() {
   const [codeFiles, setCodeFiles] = useState<{name: string, content: string}[]>([])
   const [showCodeUpload, setShowCodeUpload] = useState(false)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
 
   // Global state from Zustand
   const {
@@ -781,6 +783,28 @@ export default function ChatInterface() {
 
   const showCodeUploadButton = selectedPlatforms.includes('codeDocumentation')
 
+  // Add project handlers
+  const handleProjectCreate = (name: string) => {
+    const newProject: Project = {
+      id: crypto.randomUUID(),
+      name,
+      createdAt: new Date().toISOString()
+    }
+    setProjects(prev => [...prev, newProject])
+    setActiveProjectId(newProject.id)
+  }
+
+  const handleProjectChange = (projectId: string | null) => {
+    setActiveProjectId(projectId)
+  }
+
+  const handleProjectDelete = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId))
+    if (activeProjectId === projectId) {
+      setActiveProjectId(null)
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Audio element for notification sound */}
@@ -814,6 +838,11 @@ export default function ChatInterface() {
         onPersonaCreate={addPersona}
         onPersonaEdit={handlePersonaEdit}
         onPersonaDelete={deletePersona}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onProjectChange={handleProjectChange}
+        onProjectCreate={handleProjectCreate}
+        onProjectDelete={handleProjectDelete}
       />
 
       {/* Main Content */}

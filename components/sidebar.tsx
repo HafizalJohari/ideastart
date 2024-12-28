@@ -11,6 +11,13 @@ import { PlatformSelector, type PlatformType } from '@/components/platform-selec
 import { ModelSelector, type ModelType } from '@/components/model-selector'
 import type { Session, UserPersona } from "@/lib/types"
 import { PersonaSelector } from '@/components/persona-selector'
+import { ProjectSelector } from '@/components/project-selector'
+
+interface Project {
+  id: string
+  name: string
+  createdAt: string
+}
 
 interface SidebarProps {
   isSidebarOpen: boolean
@@ -39,6 +46,11 @@ interface SidebarProps {
   onPersonaCreate: (persona: Omit<UserPersona, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>) => void
   onPersonaEdit: (persona: UserPersona) => void
   onPersonaDelete: (id: string) => void
+  projects: Project[]
+  activeProjectId: string | null
+  onProjectChange: (projectId: string | null) => void
+  onProjectCreate: (name: string) => void
+  onProjectDelete?: (projectId: string) => void
 }
 
 export function Sidebar({
@@ -67,7 +79,12 @@ export function Sidebar({
   onPersonaChange,
   onPersonaCreate,
   onPersonaEdit,
-  onPersonaDelete
+  onPersonaDelete,
+  projects,
+  activeProjectId,
+  onProjectChange,
+  onProjectCreate,
+  onProjectDelete
 }: SidebarProps) {
   return (
     <div
@@ -91,6 +108,18 @@ export function Sidebar({
 
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-4 p-4">
+          {/* Project Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Projects</h3>
+            <ProjectSelector
+              projects={projects}
+              activeProjectId={activeProjectId}
+              onProjectChange={onProjectChange}
+              onProjectCreate={onProjectCreate}
+              onProjectDelete={onProjectDelete}
+            />
+          </div>
+
           {/* Persona Selection */}
           <div className="pb-4 border-b">
             <h3 className="mb-2 text-sm font-medium text-muted-foreground">Persona</h3>

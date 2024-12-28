@@ -1,6 +1,9 @@
-(base) hafizaljohari@Hafizals-MacBook-Pro cerebchat % git log --oneline          
+(base) hafizaljohari@Hafizals-MacBook-Pro cerebchat % git log --oneline    
 
-e33c5b6 (HEAD -> main, origin/main) add code uploader button, llama3.1-8b,platform for code documantation
+54c851d (HEAD -> main, origin/main) add analytics feature
+3adebbf update persona feature with crud
+f99e51d add medium platform, move advance setting to gear icon, fix the ui
+e33c5b6 add code uploader button, llama3.1-8b,platform for code documantation
 e831d22 add code uploader button-for code documentation featue
 12fe22d update route.ts
 aa20c63 add cohere, fixed markdown, and language
@@ -13,8 +16,4 @@ d2578ac updated multiple platform responses
 c3b4412 add rag feature
 07e4b13 add rag feature
 d92c6c1 fix bug chat responses
-c074846 add memory and fix bug 2
-c3806c3 add memory and fix bug
-7809349 add grok and gemini llm
-fe1f343 first commit
-3978ef0 Initial commit from Create Next App
+:

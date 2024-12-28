@@ -98,4 +98,10 @@ export interface Translations {
   whatHelp: string
   typeMessage: string
   [key: string]: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  createdAt: string
 } 

@@ -63,3 +63,424 @@ These are some potential agent features that could be implemented in the project
 ### Conclusion
 These agent features are specifically tailored to enhance the content management capabilities of the project. By leveraging advanced AI techniques, these agents provide autonomy, adaptability, and real-time decision-making, ensuring efficient content lifecycle management and improved user engagement.
 
+I'll help you add a project folder feature to the sidebar. Let me create a project selector component first:
+
+```typescript jsx:components/project-selector.tsx
+'use client'
+
+import * as React from "react"
+import { Plus, Folder } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+
+interface Project {
+  id: string
+  name: string
+  createdAt: string
+}
+
+interface ProjectSelectorProps {
+  projects: Project[]
+  activeProjectId: string | null
+  onProjectChange: (projectId: string | null) => void
+  onProjectCreate: (name: string) => void
+  onProjectDelete?: (projectId: string) => void
+}
+
+export function ProjectSelector({
+  projects,
+  activeProjectId,
+  onProjectChange,
+  onProjectCreate,
+  onProjectDelete
+}: ProjectSelectorProps) {
+  const [showCreateDialog, setShowCreateDialog] = React.useState(false)
+  const [newProjectName, setNewProjectName] = React.useState('')
+
+  const handleCreateProject = () => {
+    if (newProjectName.trim()) {
+      onProjectCreate(newProjectName.trim())
+      setShowCreateDialog(false)
+      setNewProjectName('')
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {projects.map((project) => (
+        <Button
+          key={project.id}
+          variant={activeProjectId === project.id ? "secondary" : "ghost"}
+          className={cn(
+            "w-full justify-start gap-2",
+            activeProjectId === project.id && "bg-muted"
+          )}
+          onClick={() => onProjectChange(project.id)}
+        >
+          <Folder className="h-4 w-4" />
+          {project.name}
+        </Button>
+      ))}
+
+      <Button
+        variant="ghost"
+        className="w-full justify-start gap-2"
+        onClick={() => setShowCreateDialog(true)}
+      >
+        <Plus className="h-4 w-4" />
+        New Project
+      </Button>
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Project</DialogTitle>
+            <DialogDescription>
+              Projects keep chats, files, and custom instructions in one place. Use them for ongoing work, or just to keep things tidy.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Input
+                id="name"
+                placeholder="E.g. Birthday Party Planning"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateProject()
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateProject} disabled={!newProjectName.trim()}>
+              Create project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+```
+
+
+Now let's update the sidebar to include the project selector:
+
+```typescript jsx:components/sidebar.tsx
+import * as React from 'react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { X } from 'lucide-react'
+import { LanguageSelector, type Language } from '@/components/language-selector'
+import { StyleSelector, type CopywritingStyle } from '@/components/style-selector'
+import { ToneSelector, type WritingTone } from '@/components/tone-selector'
+import { PlatformSelector, type PlatformType } from '@/components/platform-selector'
+import { ModelSelector, type ModelType } from '@/components/model-selector'
+import type { Session, UserPersona } from "@/lib/types"
+import { PersonaSelector } from '@/components/persona-selector'
+import { ProjectSelector } from '@/components/project-selector'
+
+interface Project {
+  id: string
+  name: string
+  createdAt: string
+}
+
+interface SidebarProps {
+  isSidebarOpen: boolean
+  toggleSidebar: () => void
+  selectedLanguage: Language
+  selectedStyle: CopywritingStyle
+  selectedTone: WritingTone
+  selectedPlatforms: PlatformType[]
+  selectedModel: ModelType
+  searchQuery: string
+  sessions: Session[]
+  currentSessionId: string
+  translations: Record<string, string>
+  onLanguageChange: (language: Language) => void
+  onStyleChange: (style: CopywritingStyle) => void
+  onToneChange: (tone: WritingTone) => void
+  onPlatformChange: (platforms: PlatformType[]) => void
+  onModelChange: (model: ModelType) => void
+  onSearchChange: (query: string) => void
+  onCreateNewSession: () => void
+  onSelectSession: (id: string) => void
+  onDeleteSession: (id: string) => void
+  personas: UserPersona[]
+  activePersonaId: string | null
+  onPersonaChange: (id: string | null) => void
+  onPersonaCreate: (persona: Omit<UserPersona, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>) => void
+  onPersonaEdit: (persona: UserPersona) => void
+  onPersonaDelete: (id: string) => void
+  projects: Project[]
+  activeProjectId: string | null
+  onProjectChange: (projectId: string | null) => void
+  onProjectCreate: (name: string) => void
+  onProjectDelete?: (projectId: string) => void
+}
+
+export function Sidebar({
+  isSidebarOpen,
+  toggleSidebar,
+  selectedLanguage,
+  selectedStyle,
+  selectedTone,
+  selectedPlatforms,
+  selectedModel,
+  searchQuery,
+  sessions,
+  currentSessionId,
+  translations: t,
+  onLanguageChange,
+  onStyleChange,
+  onToneChange,
+  onPlatformChange,
+  onModelChange,
+  onSearchChange,
+  onCreateNewSession,
+  onSelectSession,
+  onDeleteSession,
+  personas,
+  activePersonaId,
+  onPersonaChange,
+  onPersonaCreate,
+  onPersonaEdit,
+  onPersonaDelete,
+  projects,
+  activeProjectId,
+  onProjectChange,
+  onProjectCreate,
+  onProjectDelete
+}: SidebarProps) {
+  return (
+    <div
+      className={cn(
+        "group/sidebar h-full w-80 flex-col bg-background overflow-hidden border-r",
+        !isSidebarOpen && "w-0"
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between p-4">
+        <h2 className="text-lg font-semibold">Ideon Tools</h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={toggleSidebar}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-4 p-4">
+          {/* Project Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Projects</h3>
+            <ProjectSelector
+              projects={projects}
+              activeProjectId={activeProjectId}
+              onProjectChange={onProjectChange}
+              onProjectCreate={onProjectCreate}
+              onProjectDelete={onProjectDelete}
+            />
+          </div>
+
+          {/* Persona Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Persona</h3>
+            <PersonaSelector
+              personas={personas}
+              activePersonaId={activePersonaId}
+              onPersonaChange={onPersonaChange}
+              onPersonaCreate={onPersonaCreate}
+              onPersonaEdit={onPersonaEdit}
+              onPersonaDelete={onPersonaDelete}
+            />
+          </div>
+
+          {/* Model Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Model</h3>
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={onModelChange}
+            />
+          </div>
+
+          {/* Language Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Language</h3>
+            <LanguageSelector
+              selectedLanguage={selectedLanguage}
+              onLanguageChange={onLanguageChange}
+            />
+          </div>
+
+          {/* Platform Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Platforms</h3>
+            <PlatformSelector
+              selectedPlatforms={selectedPlatforms}
+              onPlatformChange={onPlatformChange}
+            />
+          </div>
+
+          {/* Style Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Style</h3>
+            <StyleSelector
+              selectedStyle={selectedStyle}
+              onStyleChange={onStyleChange}
+            />
+          </div>
+
+          {/* Tone Selection */}
+          <div className="pb-4 border-b">
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Tone</h3>
+            <ToneSelector
+              selectedTone={selectedTone}
+              onToneChange={onToneChange}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+
+
+
+
+
+Now let's update the chat interface to handle projects:
+
+```typescript jsx:components/chat-interface.tsx
+  // Add to state management
+  const [projects, setProjects] = React.useState<Project[]>([])
+  const [activeProjectId, setActiveProjectId] = React.useState<string | null>(null)
+
+  // Add project handlers
+  const handleProjectCreate = (name: string) => {
+    const newProject: Project = {
+      id: crypto.randomUUID(),
+      name,
+      createdAt: new Date().toISOString()
+    }
+    setProjects(prev => [...prev, newProject])
+    setActiveProjectId(newProject.id)
+  }
+
+  const handleProjectChange = (projectId: string | null) => {
+    setActiveProjectId(projectId)
+  }
+
+  const handleProjectDelete = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId))
+    if (activeProjectId === projectId) {
+      setActiveProjectId(null)
+    }
+  }
+
+  // Add to Sidebar props
+  <Sidebar
+    isSidebarOpen={leftSidebarOpen}
+    toggleSidebar={() => setLeftSidebarOpen(!leftSidebarOpen)}
+    selectedLanguage={selectedLanguage}
+    selectedStyle={selectedStyle}
+    selectedTone={selectedTone}
+    selectedPlatforms={selectedPlatforms}
+    selectedModel={selectedModel}
+    searchQuery={searchQuery}
+    sessions={sessions}
+    currentSessionId={currentSessionId}
+    translations={t}
+    onLanguageChange={setSelectedLanguage}
+    onStyleChange={setSelectedStyle}
+    onToneChange={setSelectedTone}
+    onPlatformChange={setSelectedPlatforms}
+    onModelChange={handleModelChange}
+    onSearchChange={setSearchQuery}
+    onCreateNewSession={handleNewChat}
+    onSelectSession={setCurrentSessionId}
+    onDeleteSession={handleDeleteSession}
+    personas={personas}
+    activePersonaId={activePersonaId}
+    onPersonaChange={setActivePersonaId}
+    onPersonaCreate={addPersona}
+    onPersonaEdit={handlePersonaEdit}
+    onPersonaDelete={deletePersona}
+    projects={projects}
+    activeProjectId={activeProjectId}
+    onProjectChange={handleProjectChange}
+    onProjectCreate={handleProjectCreate}
+    onProjectDelete={handleProjectDelete}
+  />
+```
+
+
+
+
+
+
+Let's add the Project type to the types file:
+
+```typescript:lib/types.ts
+export interface Project {
+  id: string
+  name: string
+  createdAt: string
+}
+
+// ... rest of the file
+```
+
+
+
+
+
+
+I've added the project folder feature with the following changes:
+
+1. Created a new `ProjectSelector` component that:
+   - Shows a list of projects
+   - Allows creating new projects
+   - Handles project selection
+   - Shows a dialog for creating new projects with a description
+
+2. Updated the sidebar to:
+   - Include the project selector at the top
+   - Pass through all necessary project-related props
+
+3. Updated the chat interface to:
+   - Add project state management
+   - Add handlers for creating, selecting, and deleting projects
+   - Pass project props to the sidebar
+
+4. Added the Project type to the types file
+
+The project feature now allows users to:
+- Create new projects with descriptive names
+- Switch between different projects
+- Keep their chats organized by project
+- See a visual indicator of which project is currently active
+
+Let me know if you'd like any adjustments to the implementation!
