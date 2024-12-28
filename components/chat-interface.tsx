@@ -18,7 +18,7 @@ import { CopyButton } from '@/components/copy-button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ModelSelector, type ModelType, models } from '@/components/model-selector'
 import { Sidebar } from '@/components/sidebar'
-import type { Message as MessageType, Session, ChatState, ChatMemory, UserPersona, Project } from '@/lib/types'
+import type { Message as MessageType, Session, ChatState, ChatMemory, UserPersona, Project, ProjectFile } from '@/lib/types'
 import { translations } from '@/lib/translations'
 import { ChatHistory } from '@/components/chat-history'
 import { useChatStore } from '@/lib/store'
@@ -356,6 +356,9 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
+      // Get active project
+      const activeProject = projects.find(p => p.id === activeProjectId)
+      
       // Determine model based on platform selection
       const effectiveModel = selectedPlatforms.includes('codeDocumentation') 
         ? 'llama-3.1-8b-instant' 
@@ -377,6 +380,15 @@ export default function ChatInterface() {
       // Get active persona
       const activePersona = personas.find(p => p.id === activePersonaId)
 
+      // Get project files if access is allowed
+      const projectFiles = activeProject?.allowFileAccess ? 
+        activeProject.folders.flatMap(folder => 
+          folder.files.map(file => ({
+            name: file.name,
+            content: file.content
+          }))
+        ) : []
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -394,7 +406,9 @@ export default function ChatInterface() {
           webUrls: webUrls,
           useMarkdown,
           persona: activePersona,
-          codeFiles: codeFiles
+          codeFiles: codeFiles,
+          projectInstructions: activeProject?.instructions,
+          projectFiles: projectFiles
         }),
       })
 
@@ -429,20 +443,9 @@ export default function ChatInterface() {
       console.error('Error:', error)
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive'
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
       })
-
-      // Add error message
-      const errorMessage: ExtendedMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'I apologize, but I encountered an error. Please try again.',
-        timestamp: new Date().toISOString(),
-        error: true
-      }
-
-      addMessage(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -788,7 +791,10 @@ export default function ChatInterface() {
     const newProject: Project = {
       id: crypto.randomUUID(),
       name,
-      createdAt: new Date().toISOString()
+      folders: [],
+      allowFileAccess: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
     setProjects(prev => [...prev, newProject])
     setActiveProjectId(newProject.id)
@@ -803,6 +809,108 @@ export default function ChatInterface() {
     if (activeProjectId === projectId) {
       setActiveProjectId(null)
     }
+  }
+
+  const handleCreateFolder = (projectId: string, name: string) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          folders: [
+            ...project.folders,
+            {
+              id: crypto.randomUUID(),
+              name,
+              type: 'folder',
+              files: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }
+          ],
+          updatedAt: new Date().toISOString()
+        }
+      }
+      return project
+    }))
+  }
+
+  const handleCreateFile = (projectId: string, folderId: string, file: Omit<ProjectFile, 'id' | 'createdAt' | 'updatedAt'>) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          folders: project.folders.map(folder => {
+            if (folder.id === folderId) {
+              return {
+                ...folder,
+                files: [
+                  ...folder.files,
+                  {
+                    ...file,
+                    id: crypto.randomUUID(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  }
+                ],
+                updatedAt: new Date().toISOString()
+              }
+            }
+            return folder
+          }),
+          updatedAt: new Date().toISOString()
+        }
+      }
+      return project
+    }))
+  }
+
+  const handleDeleteFolder = (projectId: string, folderId: string) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          folders: project.folders.filter(folder => folder.id !== folderId),
+          updatedAt: new Date().toISOString()
+        }
+      }
+      return project
+    }))
+  }
+
+  const handleDeleteFile = (projectId: string, folderId: string, fileId: string) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          folders: project.folders.map(folder => {
+            if (folder.id === folderId) {
+              return {
+                ...folder,
+                files: folder.files.filter(file => file.id !== fileId),
+                updatedAt: new Date().toISOString()
+              }
+            }
+            return folder
+          }),
+          updatedAt: new Date().toISOString()
+        }
+      }
+      return project
+    }))
+  }
+
+  // Add project update handler
+  const handleProjectUpdate = (projectId: string, updates: Partial<Project>) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          ...updates,
+          updatedAt: new Date().toISOString()
+        }
+      }
+      return project
+    }))
   }
 
   return (
@@ -843,6 +951,11 @@ export default function ChatInterface() {
         onProjectChange={handleProjectChange}
         onProjectCreate={handleProjectCreate}
         onProjectDelete={handleProjectDelete}
+        onCreateFolder={handleCreateFolder}
+        onCreateFile={handleCreateFile}
+        onDeleteFolder={handleDeleteFolder}
+        onDeleteFile={handleDeleteFile}
+        onUpdateProject={handleProjectUpdate}
       />
 
       {/* Main Content */}

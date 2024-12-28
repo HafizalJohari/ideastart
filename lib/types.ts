@@ -100,8 +100,30 @@ export interface Translations {
   [key: string]: string
 }
 
+export interface ProjectFile {
+  id: string
+  name: string
+  content: string
+  type: 'file'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectFolder {
+  id: string
+  name: string
+  type: 'folder'
+  files: ProjectFile[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Project {
   id: string
   name: string
+  folders: ProjectFolder[]
+  instructions?: string
+  allowFileAccess: boolean
   createdAt: string
+  updatedAt: string
 } 

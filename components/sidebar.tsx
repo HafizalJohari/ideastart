@@ -9,15 +9,9 @@ import { StyleSelector, type CopywritingStyle } from '@/components/style-selecto
 import { ToneSelector, type WritingTone } from '@/components/tone-selector'
 import { PlatformSelector, type PlatformType } from '@/components/platform-selector'
 import { ModelSelector, type ModelType } from '@/components/model-selector'
-import type { Session, UserPersona } from "@/lib/types"
+import type { Session, UserPersona, Project, ProjectFile } from "@/lib/types"
 import { PersonaSelector } from '@/components/persona-selector'
 import { ProjectSelector } from '@/components/project-selector'
-
-interface Project {
-  id: string
-  name: string
-  createdAt: string
-}
 
 interface SidebarProps {
   isSidebarOpen: boolean
@@ -51,6 +45,11 @@ interface SidebarProps {
   onProjectChange: (projectId: string | null) => void
   onProjectCreate: (name: string) => void
   onProjectDelete?: (projectId: string) => void
+  onCreateFolder: (projectId: string, name: string) => void
+  onCreateFile: (projectId: string, folderId: string, file: Omit<ProjectFile, 'id' | 'createdAt' | 'updatedAt'>) => void
+  onDeleteFolder: (projectId: string, folderId: string) => void
+  onDeleteFile: (projectId: string, folderId: string, fileId: string) => void
+  onUpdateProject: (projectId: string, updates: Partial<Project>) => void
 }
 
 export function Sidebar({
@@ -84,7 +83,12 @@ export function Sidebar({
   activeProjectId,
   onProjectChange,
   onProjectCreate,
-  onProjectDelete
+  onProjectDelete,
+  onCreateFolder,
+  onCreateFile,
+  onDeleteFolder,
+  onDeleteFile,
+  onUpdateProject
 }: SidebarProps) {
   return (
     <div
@@ -117,6 +121,11 @@ export function Sidebar({
               onProjectChange={onProjectChange}
               onProjectCreate={onProjectCreate}
               onProjectDelete={onProjectDelete}
+              onCreateFolder={onCreateFolder}
+              onCreateFile={onCreateFile}
+              onDeleteFolder={onDeleteFolder}
+              onDeleteFile={onDeleteFile}
+              onUpdateProject={onUpdateProject}
             />
           </div>
 
