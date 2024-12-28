@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Volume2, FileText, Moon, Download, Upload, RotateCcw, Trash2, Bug } from 'lucide-react'
+import { Volume2, FileText, Moon, Download, Upload, RotateCcw, Trash2, Bug, BarChart } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
-
+import Link from 'next/link'
 
 interface AdvancedSettingsProps {
   open: boolean
@@ -159,6 +159,18 @@ export function AdvancedSettingsDialog({
                 onCheckedChange={onDebugModeChange}
               />
             </div>
+
+            <Link 
+              href="/analytics" 
+              className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-muted transition-colors"
+              onClick={() => onOpenChange(false)}
+            >
+              <BarChart className="h-4 w-4" />
+              <div className="flex flex-col">
+                <span className="font-medium">Analytics</span>
+                <span className="text-sm text-muted-foreground">View usage statistics and insights</span>
+              </div>
+            </Link>
           </div>
         </div>
       </DialogContent>

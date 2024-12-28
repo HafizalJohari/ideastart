@@ -3,19 +3,13 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Podcast, Plus, X, Search, ChevronLeft, ChevronRight, Volume2, VolumeX, Download, Upload, RefreshCw, Trash2, Bug, FileText } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
+import { X } from 'lucide-react'
 import { LanguageSelector, type Language } from '@/components/language-selector'
 import { StyleSelector, type CopywritingStyle } from '@/components/style-selector'
 import { ToneSelector, type WritingTone } from '@/components/tone-selector'
 import { PlatformSelector, type PlatformType } from '@/components/platform-selector'
 import { ModelSelector, type ModelType } from '@/components/model-selector'
-import { Switch } from '@/components/ui/switch'
-import { Separator } from '@/components/ui/separator'
-import type { Session, Translations, UserPersona } from "@/lib/types"
-import { translations } from "@/lib/translations"
-import { ThemeToggle } from '@/components/theme-toggle'
+import type { Session, UserPersona } from "@/lib/types"
 import { PersonaSelector } from '@/components/persona-selector'
 
 interface SidebarProps {
