@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent, useEffect, useRef } from 'react'
-import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe, FileCode } from 'lucide-react'
+import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe, FileCode, MessageSquare, Instagram as InstagramIcon, Twitter as TwitterIcon, Facebook as FacebookIcon, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -188,7 +188,7 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
               <div className="flex-1 flex gap-3 px-4 py-3 rounded-lg bg-muted/50">
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                    <Image className="h-4 w-4" /> Generated Image
+                    <ImageIcon className="h-4 w-4" /> Generated Image
                   </div>
                   <img 
                     src={message.imageUrl} 
