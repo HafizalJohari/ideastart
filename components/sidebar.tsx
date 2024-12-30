@@ -49,7 +49,6 @@ interface SidebarProps {
   onCreateFile: (projectId: string, folderId: string, file: Omit<ProjectFile, 'id' | 'createdAt' | 'updatedAt'>) => void
   onDeleteFolder: (projectId: string, folderId: string) => void
   onDeleteFile: (projectId: string, folderId: string, fileId: string) => void
-  onUpdateProject: (projectId: string, updates: Partial<Project>) => void
 }
 
 export function Sidebar({
@@ -87,8 +86,7 @@ export function Sidebar({
   onCreateFolder,
   onCreateFile,
   onDeleteFolder,
-  onDeleteFile,
-  onUpdateProject
+  onDeleteFile
 }: SidebarProps) {
   return (
     <div
@@ -125,7 +123,6 @@ export function Sidebar({
               onCreateFile={onCreateFile}
               onDeleteFolder={onDeleteFolder}
               onDeleteFile={onDeleteFile}
-              onUpdateProject={onUpdateProject}
             />
           </div>
 

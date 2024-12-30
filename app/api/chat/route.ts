@@ -177,6 +177,10 @@ const platformData = {
     name: 'Code Documentation',
     instructions: 'Generate comprehensive code documentation including function descriptions, parameter explanations, return values, usage examples, and any important notes or caveats. Focus on clarity and completeness.'
   },
+  narrator: {
+    name: 'Narrator',
+    instructions: 'Generate a detailed, descriptive prompt for image generation that captures the visual elements, style, composition, and mood of the request'
+  },
   conversation: {
     name: 'Conversation',
     instructions: 'Natural, conversational responses optimized for chat interactions'
@@ -253,36 +257,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If it's a direct image generation request and ONLY imagePrompt is selected, bypass the LLM
-    if (directImageGeneration && platforms.length === 1 && platforms.includes('imagePrompt')) {
-      console.log('Generating image directly from prompt:', message)
-      
-      try {
-        const imageResponse = await generateImage({ prompt: message })
-        const imageUrl = imageResponse.images[0]?.url
-        
-        if (!imageUrl) {
-          throw new Error('No image URL in response')
-        }
-
-        return Response.json({
-          response: message,
-          imageUrl,
-          model,
-          platforms,
-          style,
-          tone,
-          language
-        })
-      } catch (error) {
-        console.error('Error generating image:', error)
-        throw error
-      }
-    }
-
     // Handle case where imagePrompt is selected along with other platforms
     let imageUrl: string | undefined
-    if (platforms.includes('imagePrompt')) {
+    if (directImageGeneration && platforms.includes('imagePrompt')) {
       try {
         const imageResponse = await generateImage({ prompt: message })
         imageUrl = imageResponse.images[0]?.url
@@ -306,6 +283,7 @@ export async function POST(req: NextRequest) {
       : ''
 
     const platformInstructions = platforms
+      .filter((platform: PlatformType) => platform !== 'imagePrompt' || directImageGeneration)
       .map((platform: PlatformType) => platformData[platform as keyof typeof platformData]?.instructions || '')
       .filter(Boolean)
       .join('\n')
@@ -355,9 +333,8 @@ ${platforms.map((platform: PlatformType) => platformData[platform as keyof typeo
 
 Important Instructions:
 1. Structure your response with clear sections for each platform.
-2. If Image Prompt is one of the platforms, create a dedicated section starting with "Image Prompt:" followed by a detailed visual description.
-3. For all other platforms, create separate sections starting with the platform name followed by a colon.
-4. Use clear formatting:
+2. Create separate sections starting with the platform name followed by a colon.
+3. Use clear formatting:
    - For code blocks, use triple backticks with language specification: \`\`\`language
    - For inline code, use single backticks: \`code\`
    - Use ** for bold text
@@ -365,9 +342,9 @@ Important Instructions:
    - Use > for quotes or notable content
    - Use - for bullet points
    - Use 1. 2. 3. for numbered lists
-5. ONLY generate content for the specifically requested platforms listed above.
-6. Do not include any other platforms in your response.
-7. Ensure ALL content is translated to ${language === 'en' ? 'English' : language} language, including hashtags and platform-specific content.`}
+4. ONLY generate content for the specifically requested platforms listed above.
+5. Do not include any other platforms in your response.
+6. Ensure ALL content is translated to ${language === 'en' ? 'English' : language} language, including hashtags and platform-specific content.`}
 
 Please structure your response ${platforms.length === 1 && platforms[0] === 'conversation' ? 'as a natural conversation' : 'clearly for each requested platform'}${style && style !== 'none' ? `, following the ${copywritingStyles[style as keyof typeof copywritingStyles].name} framework` : ''}.
 

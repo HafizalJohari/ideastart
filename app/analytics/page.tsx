@@ -19,9 +19,9 @@ const Charts = dynamic(() => import('@/components/analytics-charts'), {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export default function AnalyticsPage() {
-  const messages = useChatStore(state => state.messages) || []
-  const selectedModels = useChatStore(state => state.selectedModels) || []
-  const selectedPlatforms = useChatStore(state => state.selectedPlatforms) || []
+  const messages = useChatStore(state => state.messages)
+  const selectedModel = useChatStore(state => state.selectedModel)
+  const selectedPlatforms = useChatStore(state => state.selectedPlatforms)
   const selectedLanguage = useChatStore(state => state.selectedLanguage)
 
   // Calculate model usage statistics
@@ -43,8 +43,10 @@ export default function AnalyticsPage() {
   const platformUsage = React.useMemo(() => {
     const usage = new Map<string, number>()
     messages.forEach(msg => {
-      if (msg.platform) {
-        usage.set(msg.platform, (usage.get(msg.platform) || 0) + 1)
+      if (msg.platforms) {
+        msg.platforms.forEach(platform => {
+          usage.set(platform, (usage.get(platform) || 0) + 1)
+        })
       }
     })
     return Array.from(usage.entries()).map(([name, count]) => ({
@@ -169,9 +171,9 @@ export default function AnalyticsPage() {
             <CardTitle className="text-sm font-medium">Active Models/Platforms</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(selectedModels?.length || 0) + (selectedPlatforms?.length || 0)}</div>
+            <div className="text-2xl font-bold">{selectedModel ? 1 : 0 + selectedPlatforms.length}</div>
             <p className="text-xs text-muted-foreground">
-              {selectedModels?.length || 0} models, {selectedPlatforms?.length || 0} platforms
+              {selectedModel ? 1 : 0} models, {selectedPlatforms.length} platforms
             </p>
           </CardContent>
         </Card>

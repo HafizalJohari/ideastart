@@ -37,6 +37,9 @@ import { CodeUploadDialog } from '@/components/code-upload-dialog'
 import { AdvancedSettingsDialog } from '@/components/advanced-settings-dialog'
 import { useTheme } from "next-themes"
 
+// Constants
+const MAX_LENGTH = 8192 // Cerebras model limit
+
 interface CodeComponentProps {
   node?: any
   inline?: boolean
@@ -70,14 +73,15 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
     if (!message.content) return []
 
     // Split content by platform sections
-    const sections = message.content.split(/\n(?=🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)/)
+    const sections = message.content.split(/\n(?=[A-Za-z]+(?:\/[A-Za-z]+)?:)/)
     return sections.map(section => {
-      const match = section.match(/^(🐦|💼|👥|📸|🎵|🧵|👻|🎥|🎙️|📧|📝|🎨)\s*([^:\n]+)(?:[:|\n])([\s\S]+)/)
+      const match = section.match(/^([A-Za-z]+(?:\/[A-Za-z]+)?):?\s*([\s\S]+)/)
       if (match) {
-        const [, emoji, platform, content] = match
-        return { platform, emoji, content: content.trim() }
+        const [, platformName, content] = match
+        const platform = platformName.toLowerCase().replace('/', '') as PlatformType
+        return { platform, content: content.trim() }
       }
-      return { platform: 'conversation', content: section.trim() }
+      return { platform: 'conversation' as PlatformType, content: section.trim() }
     }).filter(section => section.content)
   }
 
@@ -161,7 +165,8 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
                 <div className="flex-1 space-y-2">
                   {section.platform !== 'conversation' && (
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                      {section.emoji} {section.platform}
+                      {platformData[section.platform as keyof typeof platformData]?.emoji}{' '}
+                      {platformData[section.platform as keyof typeof platformData]?.title || section.platform}
                     </div>
                   )}
                   <div className="text-sm prose prose-sm dark:prose-invert max-w-none">
@@ -183,7 +188,7 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
               <div className="flex-1 flex gap-3 px-4 py-3 rounded-lg bg-muted/50">
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                    🎨 Generated Image
+                    <Image className="h-4 w-4" /> Generated Image
                   </div>
                   <img 
                     src={message.imageUrl} 
@@ -235,6 +240,7 @@ export default function ChatInterface() {
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [isRightSidebarHovered, setIsRightSidebarHovered] = useState(false)
 
   // Global state from Zustand
   const {
@@ -352,6 +358,20 @@ export default function ChatInterface() {
     if (!input.trim()) return
 
     const newMessage = input.trim()
+    
+    // Calculate total context length including history
+    const contextLength = messages.slice(-10).reduce((acc, msg) => acc + msg.content.length, 0) + newMessage.length
+    const MAX_LENGTH = 8192 // Cerebras model limit
+
+    if (contextLength > MAX_LENGTH) {
+      toast({
+        title: "Message Too Long",
+        description: `Total context length (${contextLength} chars) exceeds limit of ${MAX_LENGTH}. Please reduce your message or start a new chat.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setInput('')
     setIsLoading(true)
 
@@ -359,10 +379,8 @@ export default function ChatInterface() {
       // Get active project
       const activeProject = projects.find(p => p.id === activeProjectId)
       
-      // Determine model based on platform selection
-      const effectiveModel = selectedPlatforms.includes('codeDocumentation') 
-        ? 'llama-3.1-8b-instant' 
-        : selectedModel
+      // Keep the original model selection
+      const effectiveModel = selectedModel
 
       // Add user message first
       const userMessage: ExtendedMessage = {
@@ -389,47 +407,62 @@ export default function ChatInterface() {
           }))
         ) : []
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: newMessage,
-          platforms: selectedPlatforms,
-          language: selectedLanguage,
-          style: selectedStyle,
-          tone: selectedTone,
-          model: effectiveModel,
-          messages: messages.slice(-10),
-          directImageGeneration: selectedPlatforms.length === 1 && selectedPlatforms[0] === 'imagePrompt',
-          webUrls: webUrls,
-          useMarkdown,
-          persona: activePersona,
-          codeFiles: codeFiles,
-          projectInstructions: activeProject?.instructions,
-          projectFiles: projectFiles
-        }),
-      })
+      // Send request for each platform
+      const responses = await Promise.all(selectedPlatforms.map(async platform => {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: newMessage,
+            platforms: [platform], // Send one platform at a time
+            language: selectedLanguage,
+            style: selectedStyle,
+            tone: selectedTone,
+            model: effectiveModel,
+            messages: messages.slice(-10),
+            directImageGeneration: platform === 'imagePrompt', // Enable image generation for imagePrompt
+            webUrls: webUrls,
+            useMarkdown,
+            persona: activePersona,
+            codeFiles: codeFiles,
+            projectInstructions: activeProject?.instructions,
+            projectFiles: projectFiles
+          }),
+        })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
 
-      const data = await response.json()
+        return {
+          platform,
+          data: await response.json()
+        }
+      }))
 
-      // Add assistant message
+      // Combine responses from all platforms
+      const combinedResponse = responses.map(({ platform, data }) => {
+        const platformInfo = platformData[platform as keyof typeof platformData]
+        if (platform === 'imagePrompt' && data.imageUrl) {
+          return `Image Prompt:\n${data.response}`
+        }
+        return `${platformInfo?.title || platform}:\n${data.response}`
+      }).join('\n\n')
+
+      // Add assistant message with combined responses
       const assistantMessage: ExtendedMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: data.response || '',
+        content: combinedResponse,
         timestamp: new Date().toISOString(),
         platforms: selectedPlatforms,
         style: selectedStyle,
         tone: selectedTone,
         model: effectiveModel,
-        imageUrl: data.imageUrl,
-        sources: data.sources
+        imageUrl: responses.find(r => r.platform === 'imagePrompt')?.data.imageUrl,
+        sources: responses.flatMap(r => r.data.sources || [])
       }
 
       addMessage(assistantMessage)
@@ -498,16 +531,32 @@ export default function ChatInterface() {
   }
 
   const handleMouseEnter = () => {
+    setIsRightSidebarHovered(true)
     if (!isPinned) {
       setIsRightSidebarOpen(true)
     }
   }
 
   const handleMouseLeave = () => {
+    setIsRightSidebarHovered(false)
     if (!isPinned) {
       setIsRightSidebarOpen(false)
     }
   }
+
+  const handlePinToggle = () => {
+    const newPinState = !isPinned
+    setIsPinned(newPinState)
+    setIsRightSidebarOpen(newPinState)
+  }
+
+  useEffect(() => {
+    if (isPinned) {
+      setIsRightSidebarOpen(true)
+    } else if (!isRightSidebarHovered) {
+      setIsRightSidebarOpen(false)
+    }
+  }, [isPinned, isRightSidebarHovered, setIsRightSidebarOpen])
 
   const handleDeleteSession = (sessionId: string) => {
     deleteSession(sessionId)
@@ -793,6 +842,7 @@ export default function ChatInterface() {
       name,
       folders: [],
       allowFileAccess: false,
+      instructions: '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -899,20 +949,6 @@ export default function ChatInterface() {
     }))
   }
 
-  // Add project update handler
-  const handleProjectUpdate = (projectId: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(project => {
-      if (project.id === projectId) {
-        return {
-          ...project,
-          ...updates,
-          updatedAt: new Date().toISOString()
-        }
-      }
-      return project
-    }))
-  }
-
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Audio element for notification sound */}
@@ -955,13 +991,12 @@ export default function ChatInterface() {
         onCreateFile={handleCreateFile}
         onDeleteFolder={handleDeleteFolder}
         onDeleteFile={handleDeleteFile}
-        onUpdateProject={handleProjectUpdate}
       />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-14 items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <Button
@@ -991,205 +1026,174 @@ export default function ChatInterface() {
               >
                 <Settings className="h-4 w-4" />
               </Button>
-              {/* Right side of header - can be used for other features */}
             </div>
           </div>
         </header>
 
-        <div className="flex flex-col h-[calc(100%-3.5rem)]">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full">
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAction('create-image')}
-                    className="flex items-center gap-2"
-                  >
-                    <Image className="w-4 h-4" />
-                    Create image
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAction('help-write')}
-                    className="flex items-center gap-2"
-                  >
-                    <PenLine className="w-4 h-4" />
-                    Help me write
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAction('surprise')}
-                    className="flex items-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Surprise me
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAction('make-plan')}
-                    className="flex items-center gap-2"
-                  >
-                    <ListChecks className="w-4 h-4" />
-                    Make a plan
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAction('generate-content')}
-                    className="flex items-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Generate content
-                  </Button>
+        {/* Chat Container */}
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Messages and Input Area */}
+          <div className={cn(
+            "flex-1 flex flex-col min-w-0 transition-all duration-300",
+            isRightSidebarOpen && "mr-80"
+          )}>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickAction('create-image')}
+                      className="flex items-center gap-2"
+                    >
+                      <Image className="w-4 h-4" />
+                      Create image
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickAction('help-write')}
+                      className="flex items-center gap-2"
+                    >
+                      <PenLine className="w-4 h-4" />
+                      Help me write
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickAction('surprise')}
+                      className="flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Surprise me
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickAction('make-plan')}
+                      className="flex items-center gap-2"
+                    >
+                      <ListChecks className="w-4 h-4" />
+                      Make a plan
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickAction('generate-content')}
+                      className="flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Generate content
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              messages.map((message: ExtendedMessage, index: number) => (
-                <MessageComponent key={index} message={message} />
-              ))
-            )}
-          </div>
+              ) : (
+                messages.map((message: ExtendedMessage, index: number) => (
+                  <MessageComponent key={index} message={message} />
+                ))
+              )}
+            </div>
 
-          {/* Chat Input */}
-          <div className="border-t">
-            {showUrlInput && <UrlInput />}
-            {showCodeUpload && <CodeFilesUpload />}
-            <div className="p-4">
-              <form onSubmit={handleSubmit} className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Textarea
-                    ref={textareaRef}
-                    placeholder={t.typeMessage}
-                    value={input}
-                    onChange={(e) => {
-                      setInput(e.target.value)
-                      if (textareaRef.current) {
-                        textareaRef.current.style.height = '50px'
-                        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-                        setTextareaHeight(`${textareaRef.current.scrollHeight}px`)
-                      }
-                    }}
-                    onKeyDown={handleKeyDown}
-                    style={{ height: textareaHeight }}
-                    className="min-h-[50px] w-full resize-none"
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setShowCodeUpload(!showCodeUpload)}
-                          className="h-8 w-8"
-                        >
-                          <Code className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Upload code files</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setShowUrlInput(!showUrlInput)}
-                          className="h-8 w-8"
-                        >
-                          <Globe className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Add web URLs for context (RAG)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Button
-                    type="submit"
-                    size="icon"
-                    variant="ghost"
-                    disabled={isLoading || !input.trim()}
-                    className="h-8 w-8"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </form>
+            {/* Input Area */}
+            <div className="border-t">
+              {showUrlInput && <UrlInput />}
+              {showCodeUpload && <CodeFilesUpload />}
+              <div className="p-4">
+                <form onSubmit={handleSubmit} className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Textarea
+                        ref={textareaRef}
+                        tabIndex={0}
+                        placeholder={t.typeMessage}
+                        value={input}
+                        onChange={(e) => {
+                          setInput(e.target.value)
+                          if (textareaRef.current) {
+                            textareaRef.current.style.height = '50px'
+                            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+                            setTextareaHeight(`${textareaRef.current.scrollHeight}px`)
+                          }
+                        }}
+                        onKeyDown={handleKeyDown}
+                        className="min-h-[60px] w-full resize-none bg-background px-4 py-[1.3rem] focus-within:outline-none sm:text-sm"
+                        style={{ height: textareaHeight }}
+                      />
+                      <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                        {input.length} / {MAX_LENGTH} chars
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setShowCodeUpload(!showCodeUpload)}
+                            className="h-8 w-8"
+                          >
+                            <Code className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Upload code files</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setShowUrlInput(!showUrlInput)}
+                            className="h-8 w-8"
+                          >
+                            <Globe className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Add web URLs for context (RAG)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Button
+                      type="submit"
+                      size="icon"
+                      variant="ghost"
+                      disabled={isLoading || !input.trim()}
+                      className="h-8 w-8"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
-      </main>
 
-      {/* Right Sidebar - Chat History */}
-      <div 
-        className="relative"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        {/* Hover Area */}
-        <div className={cn(
-          "fixed right-0 top-0 w-4 h-screen z-30",
-          isPinned ? "hidden" : "block"
-        )} />
-
-        <div className={cn(
-          "relative transition-[width] duration-200 ease-in-out",
-          isRightSidebarOpen ? "w-80" : "w-0"
-        )}>
-          <div className={cn(
-            "fixed inset-y-0 right-0 z-40 w-80 bg-background border-l transform transition-all duration-200 ease-in-out md:relative",
-            isRightSidebarOpen ? "translate-x-0" : "translate-x-full"
-          )}>
-            {/* Pin Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "absolute -left-4 top-4 hidden md:flex",
-                "h-8 w-8 rounded-full bg-background border shadow-sm",
-              )}
-              onClick={() => setIsPinned(!isPinned)}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-                style={{
-                  transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s'
-                }}
-              >
-                <line x1="12" y1="17" x2="12" y2="22" />
-                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-              </svg>
-            </Button>
-
-            {/* Search Bar */}
-            <div className="p-4 border-b">
-              <div className="relative">
+          {/* Chat History Sidebar */}
+          <div 
+            className={cn(
+              "absolute right-0 top-0 bottom-0 w-80 border-l bg-background flex-shrink-0 flex flex-col transition-all duration-300",
+              isRightSidebarOpen ? "translate-x-0" : "translate-x-full"
+            )}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            {/* Search Bar and Pin Control */}
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={t.searchChats}
@@ -1208,31 +1212,42 @@ export default function ChatInterface() {
                   </Button>
                 )}
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handlePinToggle}
+                className={cn("ml-2", isPinned && "bg-accent")}
+                aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar"}
+              >
+                <ChevronRight className={cn("h-4 w-4 transition-transform", isPinned && "rotate-180")} />
+              </Button>
             </div>
 
-            <ChatHistory
-              sessions={sessions}
-              currentSessionId={currentSessionId}
-              searchQuery={searchQuery}
-              onSelectSession={(id) => {
-                setCurrentSessionId(id)
-                // Load the selected session's messages from chat memory
-                loadSessionMessages(id)
-              }}
-              onDeleteSession={async (id, e) => {
-                e?.stopPropagation()
-                if (id === currentSessionId) {
-                  handleNewChat()
-                }
-                deleteSession(id)
-                setSessions(prev => prev.filter(s => s.id !== id))
-              }}
-              onClearSearch={() => setSearchQuery('')}
-              translations={t}
-            />
+            {/* Chat History List */}
+            <div className="flex-1 overflow-y-auto">
+              <ChatHistory
+                sessions={sessions}
+                currentSessionId={currentSessionId}
+                searchQuery={searchQuery}
+                onSelectSession={(id) => {
+                  setCurrentSessionId(id)
+                  loadSessionMessages(id)
+                }}
+                onDeleteSession={async (id, e) => {
+                  e?.stopPropagation()
+                  if (id === currentSessionId) {
+                    handleNewChat()
+                  }
+                  deleteSession(id)
+                  setSessions(prev => prev.filter(s => s.id !== id))
+                }}
+                onClearSearch={() => setSearchQuery('')}
+                translations={t}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </main>
 
       <AdvancedSettingsDialog
         open={showAdvancedSettings}

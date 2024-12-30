@@ -122,8 +122,8 @@ export interface Project {
   id: string
   name: string
   folders: ProjectFolder[]
-  instructions?: string
   allowFileAccess: boolean
+  instructions?: string
   createdAt: string
   updatedAt: string
 } 
