@@ -1307,15 +1307,9 @@ export default function ChatInterface() {
                 sessions={sessions}
                 currentSessionId={currentSessionId}
                 searchQuery={localSearchQuery}
-                onSelectSession={async (id) => {
-                  // First load the session messages
-                  loadSessionMessages(id);
-                  // Then set the current session ID
-                  setCurrentSessionId(id);
-                  // Clear local search query
-                  setLocalSearchQuery('');
-                  // Close mobile sidebar if open
-                  setLeftSidebarOpen(false);
+                onSelectSession={(id) => {
+                  setCurrentSessionId(id)
+                  loadSessionMessages(id)
                 }}
                 onDeleteSession={async (id, e) => {
                   e?.stopPropagation()

@@ -147,11 +147,13 @@ export const useChatStore = create<ChatState>()(
       loadSessionMessages: (sessionId: string) => {
         const session = get().sessions.find(s => s.id === sessionId)
         if (session) {
+          // Load messages from chat memory instead of session
+          const messages = chatMemory.load(sessionId) || []
           set({
-            messages: session.messages,
+            messages,
             currentSessionId: session.id,
             selectedLanguage: session.language || 'en',
-            selectedModel: session.model || 'llama-3.3-70b',
+            selectedModel: session.model || 'deepseek-chat',
             selectedPlatforms: session.platforms || ['conversation'],
             selectedStyle: session.style || 'none',
             selectedTone: session.tone || 'none'
