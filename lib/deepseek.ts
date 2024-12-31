@@ -73,7 +73,7 @@ export class DeepSeekClient {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'DeepSeek-V3', //deepseek-chat
           messages: messages.map(msg => ({
             role: msg.role,
             content: msg.content
