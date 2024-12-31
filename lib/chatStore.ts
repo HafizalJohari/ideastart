@@ -64,30 +64,16 @@ export const deleteChatSession = (sessionId: string) => {
 }
 
 // Search chat sessions
-export const searchChatSessions = (query: string): Session[] => {
-  try {
-    const sessions = loadChatSessions()
-    if (!query) return sessions
+export function searchChatSessions(sessions: Session[], query: string): Session[] {
+  return sessions.filter(session => {
+    // Search in session title
+    if (session.title.toLowerCase().includes(query.toLowerCase())) {
+      return true
+    }
 
-    return sessions.filter(session => {
-      // Search in session name
-      if (session.name.toLowerCase().includes(query.toLowerCase())) {
-        return true
-      }
-      
-      // Search in session's last message
-      if (session.lastMessage?.toLowerCase().includes(query.toLowerCase())) {
-        return true
-      }
-      
-      // Search in chat memory
-      const messages = chatMemory.load(session.id)
-      return messages.some(msg => 
-        msg.content.toLowerCase().includes(query.toLowerCase())
-      )
-    })
-  } catch (error) {
-    console.error('Error searching chat sessions:', error)
-    return []
-  }
+    // Search in messages
+    return session.messages.some(message =>
+      message.content.toLowerCase().includes(query.toLowerCase())
+    )
+  })
 } 

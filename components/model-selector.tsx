@@ -26,6 +26,15 @@ interface ModelInfo {
   isNew?: boolean
 }
 
+export type ModelType = 
+  | 'gpt-4'
+  | 'gpt-3.5-turbo'
+  | 'claude-3-opus'
+  | 'claude-3-sonnet'
+  | 'gemini-pro'
+  | 'llama-3.3-70b'
+  | 'deepseek-chat'
+
 export const models: Record<string, ModelInfo> = {
   'gpt-4o': {
     name: 'GPT-4o',
@@ -76,10 +85,14 @@ export const models: Record<string, ModelInfo> = {
     description: 'Advanced model from Cohere with strong capabilities',
     provider: 'Cohere',
     icon: <Sparkles className="h-4 w-4 text-yellow-500" />
+  },
+  'deepseek-chat': {
+    name: 'DeepSeek Chat',
+    description: 'Advanced model with strong instruction following',
+    provider: 'DeepSeek',
+    icon: <Sparkles className="h-4 w-4 text-pink-500" />
   }
 } as const
-
-export type ModelType = keyof typeof models
 
 interface ModelSelectorProps {
   selectedModel: ModelType

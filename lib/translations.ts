@@ -2,6 +2,7 @@ import type { Translations } from '@/lib/types'
 
 export const translations: Record<string, Translations> = {
   en: {
+    // Chat interface
     chatHistory: 'Chat History',
     searchChats: 'Search chats...',
     selectStyle: 'Select style',
@@ -12,79 +13,51 @@ export const translations: Record<string, Translations> = {
     send: 'Send',
     stop: 'Stop',
     regenerate: 'Regenerate',
-    clearChat: 'Clear Chat',
-    language: 'Language',
-    english: 'English',
-    malay: 'Malay',
-    copyToClipboard: 'Copy to clipboard',
-    copied: 'Copied!',
     deleteChat: 'Delete chat',
-    confirmDelete: 'Are you sure you want to delete this chat?',
-    yes: 'Yes',
-    no: 'No',
-    noChats: 'No chats yet',
-    noResults: 'No results found',
-    clearSearch: 'Clear search',
-    close: 'Close',
+    clearChat: 'Clear chat',
+    typeMessage: 'Type your message...',
+    
+    // Settings
     settings: 'Settings',
-    hideSettings: 'Hide settings',
-    showSettings: 'Show settings',
-    theme: 'Theme',
-    light: 'Light',
-    dark: 'Dark',
-    system: 'System',
+    language: 'Language',
     model: 'Model',
-    content: 'Content',
-    aiModel: 'AI Model',
-    voiceInput: 'Voice Input',
-    createImage: 'Create Image',
-    helpWrite: 'Help Write',
-    surpriseMe: 'Surprise Me',
-    makePlan: 'Make a Plan',
-    whatHelp: 'What can I help you with?',
-    typeMessage: 'Type a message...'
-  },
-  ms: {
-    chatHistory: 'Sejarah Perbualan',
-    searchChats: 'Cari perbualan...',
-    selectStyle: 'Pilih gaya',
-    selectTone: 'Pilih nada',
-    selectPlatforms: 'Pilih platform',
-    selectModel: 'Pilih model',
-    newChat: 'Perbualan Baru',
-    send: 'Hantar',
-    stop: 'Berhenti',
-    regenerate: 'Jana Semula',
-    clearChat: 'Kosongkan Perbualan',
-    language: 'Bahasa',
-    english: 'Bahasa Inggeris',
-    malay: 'Bahasa Melayu',
-    copyToClipboard: 'Salin ke papan keratan',
-    copied: 'Disalin!',
-    deleteChat: 'Padam perbualan',
-    confirmDelete: 'Adakah anda pasti mahu memadam perbualan ini?',
-    yes: 'Ya',
-    no: 'Tidak',
-    noChats: 'Tiada perbualan lagi',
-    noResults: 'Tiada hasil carian',
-    clearSearch: 'Kosongkan carian',
-    close: 'Tutup',
-    settings: 'Tetapan',
-    hideSettings: 'Sembunyi tetapan',
-    showSettings: 'Tunjuk tetapan',
-    theme: 'Tema',
-    light: 'Cerah',
-    dark: 'Gelap',
-    system: 'Sistem',
-    model: 'Model',
-    content: 'Kandungan',
-    aiModel: 'Model AI',
-    voiceInput: 'Input Suara',
-    createImage: 'Cipta Imej',
-    helpWrite: 'Bantu Menulis',
-    surpriseMe: 'Kejutkan Saya',
-    makePlan: 'Buat Rancangan',
-    whatHelp: 'Apa yang boleh saya bantu?',
-    typeMessage: 'Taip mesej...'
+    soundEnabled: 'Sound enabled',
+    darkMode: 'Dark mode',
+    
+    // Quick actions
+    surpriseMe: 'Surprise me',
+    makePlan: 'Make a plan',
+    generateContent: 'Generate content',
+    
+    // File handling
+    uploadFile: 'Upload file',
+    removeFile: 'Remove file',
+    addFile: 'Add file',
+    deleteFile: 'Delete file',
+    
+    // Project management
+    projects: 'Projects',
+    addProject: 'Add project',
+    editProject: 'Edit project',
+    deleteProject: 'Delete project',
+    addFolder: 'Add folder',
+    deleteFolder: 'Delete folder',
+    
+    // Persona management
+    personas: 'Personas',
+    addPersona: 'Add persona',
+    editPersona: 'Edit persona',
+    deletePersona: 'Delete persona',
+    
+    // Status messages
+    noChatsFound: 'No chats found',
+    noChatsYet: 'No chats yet',
+    startNewChat: 'Start a new chat',
+    loading: 'Loading...',
+    error: 'An error occurred',
+    
+    // Navigation
+    back: 'Back',
+    next: 'Next'
   }
 } 

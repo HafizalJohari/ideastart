@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent, useEffect, useRef } from 'react'
-import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe, FileCode, MessageSquare, Instagram as InstagramIcon, Twitter as TwitterIcon, Facebook as FacebookIcon, Copy, Check } from 'lucide-react'
+import { Bot, Send, Sparkles, Menu, Plus, Trash2, Podcast, X, Search, ChevronLeft, ChevronRight, Mic, PenLine, Image, Gift, LightbulbIcon, Sliders, Twitch, Badge, Settings, Volume2, Trash, Download, Upload, RefreshCw, Code, FileText, Loader2, ImageIcon, ListChecks, Globe, FileCode, MessageSquare, Instagram as InstagramIcon, Twitter as TwitterIcon, Facebook as FacebookIcon, Copy, Check, FileUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -36,6 +36,7 @@ import type { Components } from 'react-markdown'
 import { CodeUploadDialog } from '@/components/code-upload-dialog'
 import { AdvancedSettingsDialog } from '@/components/advanced-settings-dialog'
 import { useTheme } from "next-themes"
+import { Progress } from "@/components/ui/progress"
 
 // Constants
 const MAX_LENGTH = 8192 // Cerebras model limit
@@ -57,6 +58,10 @@ interface ExtendedMessage extends Omit<MessageType, 'id' | 'timestamp'> {
   imageUrl?: string
   error?: boolean
   sources?: string[]
+  attachments?: {
+    name: string;
+    url: string;
+  }[];
 }
 
 type ExtendedSession = Session
@@ -223,6 +228,21 @@ function MessageComponent({ message }: { message: ExtendedMessage }) {
   )
 }
 
+function MessageSkeleton() {
+  return (
+    <div className="flex gap-3 animate-pulse">
+      <div className="flex-1 space-y-3 px-4 py-3 rounded-lg bg-muted/50">
+        <div className="h-4 w-24 bg-muted rounded" />
+        <div className="space-y-2">
+          <div className="h-4 w-[80%] bg-muted rounded" />
+          <div className="h-4 w-[90%] bg-muted rounded" />
+          <div className="h-4 w-[60%] bg-muted rounded" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ChatInterface() {
   // Local state
   const [input, setInput] = useState('')
@@ -241,6 +261,9 @@ export default function ChatInterface() {
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [isRightSidebarHovered, setIsRightSidebarHovered] = useState(false)
+  const [localSearchQuery, setLocalSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [attachments, setAttachments] = useState<File[]>([])
 
   // Global state from Zustand
   const {
@@ -493,7 +516,6 @@ export default function ChatInterface() {
 
   const handleNewChat = () => {
     // Clear current session and messages
-    setCurrentSessionId('')
     setMessages([])
     setInput('')
     
@@ -513,21 +535,9 @@ export default function ChatInterface() {
     }
 
     // Create a new session
-    const newSession: Session = {
-      id: crypto.randomUUID(),
-      name: `Chat ${(sessions || []).length + 1}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      model: 'llama-3.3-70b',
-      platforms: ['conversation'],
-      language: 'en',
-      style: 'none',
-      tone: 'none'
-    }
-
-    // Add new session to sessions list and save it
-    setSessions((prev: Session[]) => [newSession, ...(prev || [])])
-    setCurrentSessionId(newSession.id)
+    const sessionId = crypto.randomUUID()
+    createNewSession() // Call without arguments as it's handled internally
+    setCurrentSessionId(sessionId)
   }
 
   const handleMouseEnter = () => {
@@ -565,16 +575,12 @@ export default function ChatInterface() {
   const handleCreateSession = () => {
     const newSession: Session = {
       id: crypto.randomUUID(),
-      name: `Chat ${(sessions || []).length + 1}`,
+      title: `Chat ${sessions.length + 1}`,
+      messages: [],
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      model: 'llama-3.3-70b',
-      platforms: ['conversation'],
-      language: 'en',
-      style: 'none',
-      tone: 'none'
+      updatedAt: new Date().toISOString()
     }
-    setSessions((prev: Session[]) => [newSession, ...(prev || [])])
+    setSessions(prev => [newSession, ...prev])
     setCurrentSessionId(newSession.id)
   }
 
@@ -836,10 +842,11 @@ export default function ChatInterface() {
   const showCodeUploadButton = selectedPlatforms.includes('codeDocumentation')
 
   // Add project handlers
-  const handleProjectCreate = (name: string) => {
+  const handleProjectCreate = () => {
     const newProject: Project = {
       id: crypto.randomUUID(),
-      name,
+      name: 'New Project',
+      description: '', // Add required description
       folders: [],
       allowFileAccess: false,
       instructions: '',
@@ -949,6 +956,77 @@ export default function ChatInterface() {
     }))
   }
 
+  // Add filtered messages logic
+  const filteredMessages = messages?.filter(message => 
+    message?.content?.toLowerCase().includes((localSearchQuery || '').toLowerCase()) ||
+    message?.platforms?.some(platform => 
+      platform?.toLowerCase().includes((localSearchQuery || '').toLowerCase())
+    )
+  ) || []
+
+  // Add file input handler
+  const handleFileAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const activeProject = projects.find(p => p.id === activeProjectId)
+    
+    if (activeProject && !activeProject.allowFileAccess) {
+      toast({
+        title: "File access denied",
+        description: "You don't have permission to attach files to this project.",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    setAttachments(prev => [...prev, ...files])
+  }
+
+  // Add file preview component
+  const FilePreview = ({ file, onRemove }: { file: File; onRemove: () => void }) => {
+    const activeProject = projects.find(p => p.id === activeProjectId)
+    const canRemove = !activeProject || activeProject.allowFileAccess
+
+    return (
+      <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+        <FileUp className="h-4 w-4" />
+        <span className="text-sm truncate">{file.name}</span>
+        {canRemove && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-auto"
+            onClick={onRemove}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  // Update session filtering with null checks
+  const filteredSessions = sessions.filter(session => {
+    if (!session || !session.title) return false
+    if (!searchQuery) return true
+    return session.title.toLowerCase().includes(searchQuery.toLowerCase())
+  })
+
+  // Update session title when first message is added
+  useEffect(() => {
+    if (currentSessionId && messages?.length === 1) {
+      const firstMessage = messages[0]
+      if (!firstMessage?.content) return
+
+      const sessionTitle = firstMessage.content.slice(0, 50) + (firstMessage.content.length > 50 ? '...' : '')
+      
+      setSessions(prev => prev.map(session => 
+        session.id === currentSessionId 
+          ? { ...session, title: sessionTitle, updatedAt: new Date().toISOString() }
+          : session
+      ))
+    }
+  }, [messages, currentSessionId, setSessions])
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Audio element for notification sound */}
@@ -963,7 +1041,7 @@ export default function ChatInterface() {
         selectedTone={selectedTone}
         selectedPlatforms={selectedPlatforms}
         selectedModel={selectedModel}
-        searchQuery={searchQuery}
+        searchQuery={localSearchQuery}
         sessions={sessions}
         currentSessionId={currentSessionId}
         translations={t}
@@ -972,7 +1050,7 @@ export default function ChatInterface() {
         onToneChange={setSelectedTone}
         onPlatformChange={setSelectedPlatforms}
         onModelChange={handleModelChange}
-        onSearchChange={setSearchQuery}
+        onSearchChange={setLocalSearchQuery}
         onCreateNewSession={handleNewChat}
         onSelectSession={setCurrentSessionId}
         onDeleteSession={handleDeleteSession}
@@ -1039,7 +1117,7 @@ export default function ChatInterface() {
           )}>
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
-              {messages.length === 0 ? (
+              {(!filteredMessages || filteredMessages.length === 0) ? (
                 <div className="flex flex-col items-center justify-center h-full">
                   <div className="flex flex-wrap gap-2 mb-4">
                     <Button
@@ -1090,8 +1168,8 @@ export default function ChatInterface() {
                   </div>
                 </div>
               ) : (
-                messages.map((message: ExtendedMessage, index: number) => (
-                  <MessageComponent key={index} message={message} />
+                filteredMessages.map((message) => (
+                  <MessageComponent key={message.id} message={message} />
                 ))
               )}
             </div>
@@ -1197,16 +1275,16 @@ export default function ChatInterface() {
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={t.searchChats}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
                   className="pl-8"
                 />
-                {searchQuery && (
+                {localSearchQuery && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="absolute right-1 top-1 h-7 w-7"
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setLocalSearchQuery('')}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -1228,7 +1306,7 @@ export default function ChatInterface() {
               <ChatHistory
                 sessions={sessions}
                 currentSessionId={currentSessionId}
-                searchQuery={searchQuery}
+                searchQuery={localSearchQuery}
                 onSelectSession={(id) => {
                   setCurrentSessionId(id)
                   loadSessionMessages(id)
@@ -1241,7 +1319,7 @@ export default function ChatInterface() {
                   deleteSession(id)
                   setSessions(prev => prev.filter(s => s.id !== id))
                 }}
-                onClearSearch={() => setSearchQuery('')}
+                onClearSearch={() => setLocalSearchQuery('')}
                 translations={t}
               />
             </div>

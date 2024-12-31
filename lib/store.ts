@@ -53,7 +53,7 @@ interface ChatState {
   // Persona management
   setPersonas: (personas: UserPersona[]) => void
   setActivePersonaId: (id: string | null) => void
-  addPersona: (persona: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>) => void
+  addPersona: (persona: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt'>) => void
   updatePersona: (id: string, updates: Partial<UserPersona>) => void
   deletePersona: (id: string) => void
 
@@ -68,7 +68,7 @@ export const useChatStore = create<ChatState>()(
       sessions: [] as Session[],
       currentSessionId: '',
       messages: [] as Message[],
-      selectedModel: 'llama-3.3-70b',
+      selectedModel: 'deepseek-chat',
       selectedLanguage: 'en',
       selectedStyle: 'none',
       selectedTone: 'none',
@@ -145,23 +145,43 @@ export const useChatStore = create<ChatState>()(
       },
 
       loadSessionMessages: (sessionId: string) => {
-        const messages = chatMemory.load(sessionId)
-        set({ messages: messages || [], currentSessionId: sessionId })
+        const session = get().sessions.find(s => s.id === sessionId)
+        if (session) {
+          set({
+            messages: session.messages,
+            currentSessionId: session.id,
+            selectedLanguage: session.language || 'en',
+            selectedModel: session.model || 'llama-3.3-70b',
+            selectedPlatforms: session.platforms || ['conversation'],
+            selectedStyle: session.style || 'none',
+            selectedTone: session.tone || 'none'
+          })
+        }
       },
 
       createNewSession: () => {
         const { sessions } = get()
+        const sessionNumber = sessions.length + 1
+        
         const newSession: Session = {
           id: crypto.randomUUID(),
-          name: `Chat ${(sessions || []).length + 1}`,
+          title: `Chat ${sessionNumber}`,
+          messages: [],
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          language: 'en',
+          model: 'llama-3.3-70b',
+          platforms: ['conversation'],
+          style: 'none',
+          tone: 'none'
         }
-        set({
-          sessions: [newSession, ...(sessions || [])],
+        
+        set(state => ({
+          ...state,
+          sessions: [newSession, ...state.sessions],
           currentSessionId: newSession.id,
           messages: []
-        })
+        }))
       },
 
       deleteSession: (id: string) => {
@@ -182,9 +202,15 @@ export const useChatStore = create<ChatState>()(
           } else {
             const newSession: Session = {
               id: crypto.randomUUID(),
-              name: 'Chat 1',
+              title: 'Chat 1',
+              messages: [],
               createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
+              language: 'en',
+              model: 'llama-3.3-70b',
+              platforms: ['conversation'],
+              style: 'none',
+              tone: 'none'
             }
             set({
               sessions: [newSession],
@@ -201,17 +227,18 @@ export const useChatStore = create<ChatState>()(
       setPersonas: (personas: UserPersona[]) => set({ personas }),
       setActivePersonaId: (id: string | null) => set({ activePersonaId: id }),
       
-      addPersona: (personaData) => {
+      addPersona: (persona: Omit<UserPersona, 'id' | 'createdAt' | 'updatedAt'>) => {
         const newPersona: UserPersona = {
-          ...personaData,
           id: crypto.randomUUID(),
-          isActive: true,
+          name: persona.name,
+          description: persona.description,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }
-        set((state) => ({
-          personas: [...(state.personas || []), newPersona],
-          activePersonaId: newPersona.id
+        
+        set(state => ({
+          ...state,
+          personas: [...state.personas, newPersona]
         }))
       },
 
@@ -229,6 +256,17 @@ export const useChatStore = create<ChatState>()(
         set((state) => ({
           personas: (state.personas || []).filter((persona) => persona.id !== id),
           activePersonaId: state.activePersonaId === id ? null : state.activePersonaId
+        }))
+      },
+
+      updateSession: (sessionId: string, updates: Partial<Session>) => {
+        set(state => ({
+          ...state,
+          sessions: state.sessions.map(session =>
+            session.id === sessionId
+              ? { ...session, ...updates, updatedAt: new Date().toISOString() }
+              : session
+          )
         }))
       }
     }),

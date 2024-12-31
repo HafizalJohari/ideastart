@@ -1,7 +1,24 @@
 import { fal } from '@fal-ai/client';
+import type { RunOptions } from '@fal-ai/client';
 
 if (!process.env.FAL_KEY) {
   throw new Error('FAL_KEY is required');
+}
+
+// Define the input type for the flux model
+interface FluxInput {
+  prompt: string;
+  image_size: {
+    width: number;
+    height: number;
+  };
+  num_inference_steps: number;
+  guidance_scale: number;
+  num_images: number;
+  seed: number;
+  scheduler: string;
+  output_format: string;
+  negative_prompt?: string;
 }
 
 // Initialize FAL AI client
@@ -106,7 +123,6 @@ export async function generateImage({
       fal.queue.submit('fal-ai/flux/dev', {
         input: {
           prompt,
-          negative_prompt,
           image_size: {
             width: 1920,
             height: 1080
@@ -116,9 +132,10 @@ export async function generateImage({
           num_images: 1,
           seed: Math.floor(Math.random() * 10000000),
           scheduler: "DDIM",
-          output_format: "jpeg"
+          output_format: "jpeg",
+          ...(negative_prompt && { negative_prompt })
         }
-      })
+      } as any)
     );
 
     console.log('📝 Image generation request submitted with ID:', request_id);

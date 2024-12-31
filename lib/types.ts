@@ -1,61 +1,94 @@
-import { ModelType } from '@/components/model-selector'
+import { PlatformType } from '@/components/platform-selector'
 import { Language } from '@/components/language-selector'
 import { CopywritingStyle } from '@/components/style-selector'
 import { WritingTone } from '@/components/tone-selector'
-import { PlatformType } from '@/components/platform-selector'
+import { ModelType } from '@/components/model-selector'
 
 export interface Message {
   id: string
-  role: 'system' | 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: string
+  platforms?: PlatformType[]
+  style?: CopywritingStyle
+  tone?: WritingTone
+  model?: ModelType
+  imageUrl?: string
   error?: boolean
+  sources?: string[]
 }
 
 export interface Session {
   id: string
-  name: string
+  title: string
+  messages: Message[]
   createdAt: string
   updatedAt: string
-  model?: ModelType
   language?: Language
+  model?: ModelType
+  platforms?: PlatformType[]
   style?: CopywritingStyle
   tone?: WritingTone
-  platforms?: PlatformType[]
   lastMessage?: string
-  lastMessageTimestamp?: string
+}
+
+export interface ChatState {
+  messages: Message[]
+  sessions: Session[]
+  currentSessionId: string | null
+  selectedModel: ModelType
+  selectedLanguage: Language
+  selectedStyle: CopywritingStyle
+  selectedTone: WritingTone
+  selectedPlatforms: PlatformType[]
+  searchQuery: string
+  isPinned: boolean
+  isRightSidebarOpen: boolean
+  soundEnabled: boolean
 }
 
 export interface ChatMemory {
   messages: Message[]
   context?: string
-  summary?: string
 }
 
 export interface UserPersona {
   id: string
   name: string
-  role: string
-  industry?: string
-  interests?: string[]
-  tone?: string
-  background?: string
-  goals?: string[]
-  isActive: boolean
+  description: string
   createdAt: string
   updatedAt: string
 }
 
-export interface ChatState {
-  messages: Message[]
-  context?: string
-  loading: boolean
-  error?: string
-  personas: UserPersona[]
-  activePersonaId: string | null
+export interface ProjectFile {
+  id: string
+  name: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectFolder {
+  id: string
+  name: string
+  files: ProjectFile[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  description: string
+  instructions?: string
+  folders: ProjectFolder[]
+  createdAt: string
+  updatedAt: string
+  allowFileAccess?: boolean
 }
 
 export interface Translations {
+  // Chat interface
   chatHistory: string
   searchChats: string
   selectStyle: string
@@ -66,64 +99,52 @@ export interface Translations {
   send: string
   stop: string
   regenerate: string
-  clearChat: string
-  language: string
-  english: string
-  malay: string
-  copyToClipboard: string
-  copied: string
   deleteChat: string
-  confirmDelete: string
-  yes: string
-  no: string
-  noChats: string
-  noResults: string
-  clearSearch: string
-  close: string
+  clearChat: string
+  typeMessage: string
+  
+  // Settings
   settings: string
-  hideSettings: string
-  showSettings: string
-  theme: string
-  light: string
-  dark: string
-  system: string
+  language: string
   model: string
-  content: string
-  aiModel: string
-  voiceInput: string
-  createImage: string
-  helpWrite: string
+  soundEnabled: string
+  darkMode: string
+  
+  // Quick actions
   surpriseMe: string
   makePlan: string
-  whatHelp: string
-  typeMessage: string
-  [key: string]: string
-}
-
-export interface ProjectFile {
-  id: string
-  name: string
-  content: string
-  type: 'file'
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ProjectFolder {
-  id: string
-  name: string
-  type: 'folder'
-  files: ProjectFile[]
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Project {
-  id: string
-  name: string
-  folders: ProjectFolder[]
-  allowFileAccess: boolean
-  instructions?: string
-  createdAt: string
-  updatedAt: string
+  generateContent: string
+  
+  // File handling
+  uploadFile: string
+  removeFile: string
+  addFile: string
+  deleteFile: string
+  
+  // Project management
+  projects: string
+  addProject: string
+  editProject: string
+  deleteProject: string
+  addFolder: string
+  deleteFolder: string
+  
+  // Persona management
+  personas: string
+  addPersona: string
+  editPersona: string
+  deletePersona: string
+  
+  // Status messages
+  noChatsFound: string
+  noChatsYet: string
+  startNewChat: string
+  loading: string
+  error: string
+  
+  // Navigation
+  back: string
+  next: string
+  
+  [key: string]: string // Allow any string key for additional translations
 } 

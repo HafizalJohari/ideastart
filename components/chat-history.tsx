@@ -25,58 +25,44 @@ export function ChatHistory({
   onClearSearch,
   translations
 }: ChatHistoryProps) {
-  const filteredSessions = (sessions || [])
-    .filter(session => {
-      if (!searchQuery) return true
-      return (
-        session.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        session.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    })
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  const filteredSessions = sessions.filter(session => {
+    const sessionTitle = session?.title || translations.defaultChatTitle || 'New Chat'
+    return sessionTitle.toLowerCase().includes((searchQuery || '').toLowerCase())
+  })
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      {filteredSessions.length === 0 ? (
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          {searchQuery ? translations.noResults : translations.noChats}
-        </div>
-      ) : (
-        <div className="space-y-2 p-4">
-          {filteredSessions.map((session) => (
-            <Card
-              key={session.id}
-              className={cn(
-                "cursor-pointer p-3 hover:bg-muted/50",
-                session.id === currentSessionId && "bg-muted"
-              )}
-              onClick={() => onSelectSession(session.id)}
+    <div className="space-y-2 p-2">
+      {filteredSessions.length > 0 ? (
+        filteredSessions.map((session) => (
+          <div
+            key={session.id}
+            onClick={() => onSelectSession(session.id)}
+            className={cn(
+              "flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 cursor-pointer",
+              session.id === currentSessionId && "bg-muted"
+            )}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm truncate">
+                {session.title}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {new Date(session.updatedAt).toLocaleDateString()}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 ml-2"
+              onClick={(e) => onDeleteSession(session.id, e)}
             >
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 truncate">
-                  <p className="text-sm font-medium leading-none">
-                    {session.name}
-                  </p>
-                  {session.lastMessage && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      {session.lastMessage}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 flex-shrink-0"
-                  onClick={(e) => onDeleteSession(session.id, e)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span className="sr-only">
-                    {translations.deleteChat}
-                  </span>
-                </Button>
-              </div>
-            </Card>
-          ))}
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))
+      ) : (
+        <div className="text-center p-4 text-muted-foreground">
+          {searchQuery ? translations.noChatsFound : translations.noChatsYet}
         </div>
       )}
     </div>
